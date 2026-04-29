@@ -47,33 +47,33 @@ class TableSettingsMenu(QtWidgets.QMenu):
         """
 
         # lighthouse colors
-        self._action_change_theme = QtWidgets.QAction("Change theme", None)
-        self._action_change_theme.setToolTip("Lighthouse color & theme customization")
+        self._action_change_theme = QtWidgets.QAction("切换主题", None)
+        self._action_change_theme.setToolTip("自定义 Lighthouse 颜色和主题")
         self.addAction(self._action_change_theme)
         self.addSeparator()
 
         # painting
-        self._action_force_clear = QtWidgets.QAction("Force clear paint (slow!)", None)
-        self._action_force_clear.setToolTip("Attempt to forcefully clear stuck paint from the database")
+        self._action_force_clear = QtWidgets.QAction("强制清除着色（较慢）", None)
+        self._action_force_clear.setToolTip("尝试强制清除数据库中残留的覆盖率着色")
         self.addAction(self._action_force_clear)
 
-        self._action_disable_paint = QtWidgets.QAction("Disable painting", None)
+        self._action_disable_paint = QtWidgets.QAction("禁用着色", None)
         self._action_disable_paint.setCheckable(True)
-        self._action_disable_paint.setToolTip("Disable the coverage painting subsystem")
+        self._action_disable_paint.setToolTip("禁用覆盖率着色子系统")
         self.addAction(self._action_disable_paint)
         self.addSeparator()
 
         # table actions
-        self._action_refresh_metadata = QtWidgets.QAction("Rebuild coverage mappings", None)
-        self._action_refresh_metadata.setToolTip("Refresh the database metadata and coverage mapping")
+        self._action_refresh_metadata = QtWidgets.QAction("重建覆盖率映射", None)
+        self._action_refresh_metadata.setToolTip("刷新数据库元数据和覆盖率映射")
         self.addAction(self._action_refresh_metadata)
 
-        self._action_export_html = QtWidgets.QAction("Generate HTML report", None)
-        self._action_export_html.setToolTip("Export the coverage table to HTML")
+        self._action_export_html = QtWidgets.QAction("生成 HTML 报告", None)
+        self._action_export_html.setToolTip("将覆盖率表导出为 HTML")
         self.addAction(self._action_export_html)
 
-        self._action_hide_zero = QtWidgets.QAction("Hide 0% coverage", None)
-        self._action_hide_zero.setToolTip("Hide table entries with no coverage data")
+        self._action_hide_zero = QtWidgets.QAction("隐藏 0% 覆盖率", None)
+        self._action_hide_zero.setToolTip("隐藏没有覆盖率数据的表项")
         self._action_hide_zero.setCheckable(True)
         self.addAction(self._action_hide_zero)
 

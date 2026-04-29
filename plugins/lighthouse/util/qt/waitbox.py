@@ -1,5 +1,5 @@
 from .shim import *
-from .util import get_dpi_scale
+from .util import get_dpi_scale, set_window_flag
 
 import logging
 logger = logging.getLogger("Lighthouse.Qt.WaitBox")
@@ -13,7 +13,7 @@ class WaitBox(QtWidgets.QDialog):
     A Generic Qt WaitBox Dialog.
     """
 
-    def __init__(self, text, title="Please wait...", abort=None):
+    def __init__(self, text, title="请稍候...", abort=None):
         super(WaitBox, self).__init__()
 
         # dialog text & window title
@@ -49,15 +49,9 @@ class WaitBox(QtWidgets.QDialog):
         """
         Initialize UI elements.
         """
-        self.setWindowFlags(
-            self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint
-        )
-        self.setWindowFlags(
-            self.windowFlags() | QtCore.Qt.MSWindowsFixedSizeDialogHint
-        )
-        self.setWindowFlags(
-            self.windowFlags() & ~QtCore.Qt.WindowCloseButtonHint
-        )
+        set_window_flag(self, QtCore.Qt.WindowContextHelpButtonHint, False)
+        set_window_flag(self, QtCore.Qt.MSWindowsFixedSizeDialogHint, True)
+        set_window_flag(self, QtCore.Qt.WindowCloseButtonHint, False)
 
         # configure the main widget / form
         self.setSizeGripEnabled(False)
@@ -65,7 +59,7 @@ class WaitBox(QtWidgets.QDialog):
         self._dpi_scale = get_dpi_scale()*5
 
         # initialize abort button
-        self._abort_button = QtWidgets.QPushButton("Cancel")
+        self._abort_button = QtWidgets.QPushButton("取消")
 
         # layout the populated UI just before showing it
         self._ui_layout()

@@ -84,9 +84,9 @@ class LighthouseContext(object):
         # create & configure a Qt File Dialog for immediate use
         file_dialog = QtWidgets.QFileDialog(
             None,
-            'Open code coverage file',
+            '打开代码覆盖率文件',
             self._last_directory,
-            'All Files (*.*)'
+            '所有文件 (*.*)'
         )
         file_dialog.setFileMode(QtWidgets.QFileDialog.ExistingFiles)
 
@@ -108,4 +108,3 @@ class LighthouseContext(object):
 
         # return the captured filenames
         return filenames
-

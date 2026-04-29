@@ -322,7 +322,7 @@ class DatabaseMetadata(object):
 
         Returns a future (Queue) that will carry the completion message.
         """
-        assert self._refresh_worker == None, 'Refresh already running'
+        assert self._refresh_worker == None, '刷新已经在运行'
         result_queue = queue.Queue()
 
         #
@@ -628,7 +628,7 @@ class DatabaseMetadata(object):
             #
 
             except Exception:
-                lmsg(" - Caching function at 0x%08X failed..." % address)
+                lmsg(" - 缓存 0x%08X 处的函数失败..." % address)
                 logger.exception("FunctionMetadata Error:")
                 continue
 
@@ -642,7 +642,7 @@ class DatabaseMetadata(object):
 
         NOTE: Read the 'MONKEY PATCHING' section at the end of this file.
         """
-        raise RuntimeError("This function should have been monkey patched...")
+        raise RuntimeError("该函数应已被运行时替换")
 
     def _binja_cache_instructions(self):
         """
@@ -774,7 +774,7 @@ class DatabaseMetadata(object):
 
             # only attempt a rebase if the disassembler seems idle...
             if not disassembler_ctx.busy:
-                lmsg("Rebasing Lighthouse (0x%X --> 0x%X)" % (self.imagebase, current_imagebase))
+                lmsg("正在重定位 Lighthouse (0x%X --> 0x%X)" % (self.imagebase, current_imagebase))
                 self.lctx.director.refresh()
 
         # schedule the next update (ms)
@@ -846,7 +846,7 @@ class FunctionMetadata(object):
 
         NOTE: Read the 'MONKEY PATCHING' section at the end of this file.
         """
-        raise RuntimeError("This function should have been monkey patched...")
+        raise RuntimeError("该函数应已被运行时替换")
 
     def _ida_refresh_nodes(self, _):
         """
@@ -1069,7 +1069,7 @@ class NodeMetadata(object):
 
         NOTE: Read the 'MONKEY PATCHING' section at the end of this file.
         """
-        raise RuntimeError("This function should have been monkey patched...")
+        raise RuntimeError("该函数应已被运行时替换")
 
     def _ida_cache_node(self, _):
         """
@@ -1171,7 +1171,7 @@ def metadata_progress(completed, total):
     Handler for metadata collection callback, updates progress dialog.
     """
     disassembler.replace_wait_box(
-        "Collected metadata for %u/%u Functions" % (completed, total)
+        "已收集 %u/%u 个函数的元数据" % (completed, total)
     )
 
 #------------------------------------------------------------------------------
@@ -1191,6 +1191,10 @@ def metadata_progress(completed, total):
 if disassembler.NAME == "IDA":
     import idaapi
     import idautils
+    from lighthouse.util.disassembler.ida_compat import patch_idaapi
+
+    patch_idaapi()
+
     DatabaseMetadata._cache_instructions = DatabaseMetadata._ida_cache_instructions
     FunctionMetadata._refresh_nodes = FunctionMetadata._ida_refresh_nodes
     NodeMetadata._cache_node = NodeMetadata._ida_cache_node

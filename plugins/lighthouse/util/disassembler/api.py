@@ -1,7 +1,7 @@
 import abc
 import logging
 
-from ..qt import QT_AVAILABLE, QtGui, QtWidgets
+from ..qt import QT_AVAILABLE, QtGui, QtWidgets, qt_exec
 
 logger = logging.getLogger("Lighthouse.API")
 
@@ -40,7 +40,7 @@ class DisassemblerCoreAPI(object):
 
         if not self.headless and QT_AVAILABLE:
             from ..qt import WaitBox
-            self._waitbox = WaitBox("Please wait...")
+            self._waitbox = WaitBox("请稍候...")
         else:
             self._waitbox = None
 
@@ -150,7 +150,7 @@ class DisassemblerCoreAPI(object):
         after = msgbox.sizeHint().width()
         icon_width = after - before
 
-        msgbox.setWindowTitle("Lighthouse Warning")
+        msgbox.setWindowTitle("Lighthouse 警告")
         msgbox.setText(text)
 
         font = msgbox.font()
@@ -164,7 +164,7 @@ class DisassemblerCoreAPI(object):
         msgbox.setLayout(layout)
 
         # show the dialog
-        msgbox.exec_()
+        qt_exec(msgbox)
 
     @abc.abstractmethod
     def message(self, function_address, new_name):

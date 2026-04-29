@@ -51,7 +51,7 @@ class CoverageOverview(object):
     @property
     def name(self):
         if not self.widget:
-            return "Coverage Overview"
+            return "覆盖率总览"
         return self.widget.name
 
     @property
@@ -342,6 +342,8 @@ class EventProxy(QtCore.QObject):
 
         elif int(event.type()) == 2002 and disassembler.NAME == "IDA":
             import idaapi
+            from lighthouse.util.disassembler.ida_compat import patch_idaapi
+            patch_idaapi()
 
             #
             # if the general registers IDA View exists, we make the assumption

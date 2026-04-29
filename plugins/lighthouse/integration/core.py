@@ -25,9 +25,9 @@ class LighthouseCore(object):
     # Plugin Metadata
     #--------------------------------------------------------------------------
 
-    PLUGIN_VERSION = "0.9.3"
+    PLUGIN_VERSION = "0.9.4"
     AUTHORS        = "Markus Gaasedelen"
-    DATE           = "2024"
+    DATE           = "2026"
 
     #--------------------------------------------------------------------------
     # Initialization
@@ -51,7 +51,7 @@ class LighthouseCore(object):
             return widget
 
         # the coverage overview widget
-        disassembler.register_dockable("Coverage Overview", create_coverage_overview)
+        disassembler.register_dockable("覆盖率总览", create_coverage_overview)
 
         # install disassembler UI
         self._install_ui()
@@ -89,7 +89,7 @@ class LighthouseCore(object):
         banner_title  = "v%s - (c) %s - %s" % banner_params
 
         # print plugin banner
-        lmsg("Loaded %s" % banner_title)
+        lmsg("已加载 %s" % banner_title)
 
     #--------------------------------------------------------------------------
     # Disassembler / Database Context Selector
@@ -112,6 +112,7 @@ class LighthouseCore(object):
         """
         self._install_load_file()
         self._install_load_batch()
+        self._install_generate_coverage()
         self._install_open_coverage_xref()
         self._install_open_coverage_overview()
 
@@ -121,6 +122,7 @@ class LighthouseCore(object):
         """
         self._uninstall_open_coverage_overview()
         self._uninstall_open_coverage_xref()
+        self._uninstall_generate_coverage()
         self._uninstall_load_batch()
         self._uninstall_load_file()
 
@@ -146,6 +148,13 @@ class LighthouseCore(object):
         pass
 
     @abc.abstractmethod
+    def _install_generate_coverage(self):
+        """
+        Install the automatic coverage generation menu entry.
+        """
+        pass
+
+    @abc.abstractmethod
     def _install_open_coverage_overview(self):
         """
         Install the 'View->Open subviews->Coverage Overview' menu entry.
@@ -163,6 +172,13 @@ class LighthouseCore(object):
     def _uninstall_load_batch(self):
         """
         Remove the 'File->Load file->Code coverage batch...' menu entry.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _uninstall_generate_coverage(self):
+        """
+        Remove the automatic coverage generation menu entry.
         """
         pass
 
@@ -204,7 +220,7 @@ class LighthouseCore(object):
             return
 
         # show the coverage overview
-        disassembler.show_dockable("Coverage Overview")
+        disassembler.show_dockable("覆盖率总览")
 
         # trigger an update check (this should only ever really 'check' once)
         self.check_for_update()
@@ -217,7 +233,7 @@ class LighthouseCore(object):
 
         # show the coverage xref dialog
         dialog = CoverageXref(lctx.director, address)
-        if not dialog.exec_():
+        if not qt_exec(dialog):
             return
 
         # activate the user selected xref (if one was double clicked)
@@ -226,19 +242,19 @@ class LighthouseCore(object):
             return
 
         # load a coverage file from disk
-        disassembler.show_wait_box("Loading coverage from disk...")
+        disassembler.show_wait_box("正在从磁盘加载覆盖率...")
         created_coverage, errors = lctx.director.load_coverage_files(
             [dialog.selected_filepath],
             disassembler.replace_wait_box
         )
 
         if not created_coverage:
-            lmsg("No coverage files could be loaded...")
+            lmsg("未能加载任何覆盖率文件...")
             disassembler.hide_wait_box()
             warn_errors(errors)
             return
 
-        disassembler.replace_wait_box("Selecting coverage...")
+        disassembler.replace_wait_box("正在选择覆盖率...")
         lctx.director.select_coverage(created_coverage[0].name)
         disassembler.hide_wait_box()
 
@@ -268,8 +284,8 @@ class LighthouseCore(object):
         # prompt the user to name the new coverage aggregate
         default_name = "BATCH_%s" % lctx.director.peek_shorthand()
         ok, batch_name = prompt_string(
-            "Batch Name:",
-            "Please enter a name for this coverage",
+            "批量覆盖率名称:",
+            "请输入该覆盖率的名称",
             default_name
         )
 
@@ -279,7 +295,7 @@ class LighthouseCore(object):
         #
 
         if not (ok and batch_name):
-            lmsg("User failed to enter a name for the batch coverage...")
+            lmsg("用户未输入批量覆盖率名称...")
             lctx.director.metadata.abort_refresh()
             return
 
@@ -291,7 +307,7 @@ class LighthouseCore(object):
         # a progress dialog depicts the work remaining in the refresh
         #
 
-        disassembler.show_wait_box("Building database metadata...")
+        disassembler.show_wait_box("正在构建数据库元数据...")
         lctx.metadata.go_synchronous()
         await_future(future)
 
@@ -300,7 +316,7 @@ class LighthouseCore(object):
         # to normalize and condense (aggregate) all the coverage data
         #
 
-        disassembler.replace_wait_box("Loading coverage from disk...")
+        disassembler.replace_wait_box("正在从磁盘加载覆盖率...")
         batch_coverage, errors = lctx.director.load_coverage_batch(
             filepaths,
             batch_name,
@@ -309,18 +325,18 @@ class LighthouseCore(object):
 
         # if batch creation fails...
         if not batch_coverage:
-            lmsg("Creation of batch '%s' failed..." % batch_name)
+            lmsg("创建批量覆盖率 '%s' 失败..." % batch_name)
             disassembler.hide_wait_box()
             warn_errors(errors)
             return
 
         # select the newly created batch coverage
-        disassembler.replace_wait_box("Selecting coverage...")
+        disassembler.replace_wait_box("正在选择覆盖率...")
         lctx.director.select_coverage(batch_name)
 
         # all done! pop the coverage overview to show the user their results
         disassembler.hide_wait_box()
-        lmsg("Successfully loaded batch %s..." % batch_name)
+        lmsg("已成功加载批量覆盖率 %s..." % batch_name)
         self.open_coverage_overview(lctx.dctx)
 
         # finally, emit any notable issues that occurred during load
@@ -345,9 +361,18 @@ class LighthouseCore(object):
         #
 
         filenames = lctx.select_coverage_files()
+        return self._load_coverage_filepaths(lctx, filenames, future)
+
+    def _load_coverage_filepaths(self, lctx, filenames, future=None):
+        """
+        Load one or more coverage files into a Lighthouse context.
+        """
+        if future is None:
+            future = lctx.metadata.refresh_async(progress_callback=metadata_progress)
+
         if not filenames:
             lctx.metadata.abort_refresh()
-            return
+            return False
 
         #
         # to begin mapping the loaded coverage data, we require that the
@@ -357,7 +382,7 @@ class LighthouseCore(object):
         # a progress dialog depicts the work remaining in the refresh
         #
 
-        disassembler.show_wait_box("Building database metadata...")
+        disassembler.show_wait_box("正在构建数据库元数据...")
         lctx.metadata.go_synchronous()
         await_future(future)
 
@@ -366,7 +391,7 @@ class LighthouseCore(object):
         # to load and normalize the selected coverage files
         #
 
-        disassembler.replace_wait_box("Loading coverage from disk...")
+        disassembler.replace_wait_box("正在从磁盘加载覆盖率...")
         created_coverage, errors = lctx.director.load_coverage_files(filenames, disassembler.replace_wait_box)
 
         #
@@ -375,26 +400,27 @@ class LighthouseCore(object):
         #
 
         if not created_coverage:
-            lmsg("No coverage files could be loaded...")
+            lmsg("未能加载任何覆盖率文件...")
             disassembler.hide_wait_box()
             warn_errors(errors)
-            return
+            return False
 
         #
         # activate the first of the newly loaded coverage file(s). this is the
         # one that will be visible in the coverage overview once opened
         #
 
-        disassembler.replace_wait_box("Selecting coverage...")
+        disassembler.replace_wait_box("正在选择覆盖率...")
         lctx.director.select_coverage(created_coverage[0].name)
 
         # all done! pop the coverage overview to show the user their results
         disassembler.hide_wait_box()
-        lmsg("Successfully loaded %u coverage file(s)..." % len(created_coverage))
+        lmsg("已成功加载 %u 个覆盖率文件..." % len(created_coverage))
         self.open_coverage_overview(lctx.dctx)
 
         # finally, emit any notable issues that occurred during load
         warn_errors(errors, lctx.director.suppressed_errors)
+        return True
 
     def check_for_update(self):
         """

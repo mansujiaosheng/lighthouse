@@ -2,9 +2,11 @@ import time
 import logging
 
 import idaapi
+from lighthouse.util.disassembler.ida_compat import patch_idaapi
 from lighthouse.util.log import lmsg
 from lighthouse.integration.ida_integration import LighthouseIDA
 
+patch_idaapi()
 logger = logging.getLogger("Lighthouse.IDA.Loader")
 
 #------------------------------------------------------------------------------
@@ -64,7 +66,7 @@ class LighthouseIDAPlugin(idaapi.plugin_t):
             self._lighthouse = LighthouseIDA()
             self._lighthouse.load()
         except Exception as e:
-            lmsg("Failed to initialize Lighthouse")
+            lmsg("初始化 Lighthouse 失败")
             logger.exception("Exception details:")
         return idaapi.PLUGIN_KEEP
 
@@ -72,7 +74,7 @@ class LighthouseIDAPlugin(idaapi.plugin_t):
         """
         This is called by IDA when this file is loaded as a script.
         """
-        idaapi.warning("Lighthouse cannot be run as a script in IDA.")
+        idaapi.warning("Lighthouse 不能作为 IDA 脚本直接运行。")
 
     def term(self):
         """
@@ -91,4 +93,3 @@ class LighthouseIDAPlugin(idaapi.plugin_t):
         logger.debug("-"*50)
 
         logger.debug("IDA term done... (%.3f seconds...)" % (end-start))
-

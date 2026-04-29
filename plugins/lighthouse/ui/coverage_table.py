@@ -199,28 +199,28 @@ class CoverageTableView(QtWidgets.QTableView):
         """
 
         # misc actions
-        self._action_dump_orphan = QtWidgets.QAction("Dump orphan addresses", None)
-        self._action_dump_internal = QtWidgets.QAction("Dump internal addresses (Debug)", None)
+        self._action_dump_orphan = QtWidgets.QAction("转储孤立地址", None)
+        self._action_dump_internal = QtWidgets.QAction("转储内部地址（调试）", None)
 
         # function actions
-        self._action_rename = QtWidgets.QAction("Rename", None)
-        self._action_copy_name = QtWidgets.QAction("Copy name", None)
-        self._action_copy_address = QtWidgets.QAction("Copy address", None)
-        self._action_copy_name_and_address = QtWidgets.QAction("Copy name and address", None)
+        self._action_rename = QtWidgets.QAction("重命名", None)
+        self._action_copy_name = QtWidgets.QAction("复制名称", None)
+        self._action_copy_address = QtWidgets.QAction("复制地址", None)
+        self._action_copy_name_and_address = QtWidgets.QAction("复制名称和地址", None)
 
-        self._action_copy_names = QtWidgets.QAction("Copy names", None)
-        self._action_copy_addresses = QtWidgets.QAction("Copy addresses", None)
-        self._action_copy_names_and_addresses = QtWidgets.QAction("Copy names and addresses", None)
+        self._action_copy_names = QtWidgets.QAction("复制名称", None)
+        self._action_copy_addresses = QtWidgets.QAction("复制地址", None)
+        self._action_copy_names_and_addresses = QtWidgets.QAction("复制名称和地址", None)
 
         # function prefixing actions
-        self._action_prefix = QtWidgets.QAction("Prefix selected functions", None)
-        self._action_clear_prefix = QtWidgets.QAction("Clear prefixes", None)
+        self._action_prefix = QtWidgets.QAction("为所选函数添加前缀", None)
+        self._action_clear_prefix = QtWidgets.QAction("清除前缀", None)
 
     def _ui_init_header_ctx_menu_actions(self):
         """
         Initialize the right click context menu actions for the table header.
         """
-        self._action_alignment = QtWidgets.QAction("Center Aligned", None)
+        self._action_alignment = QtWidgets.QAction("居中对齐", None)
         self._action_alignment.setCheckable(True)
         self._action_alignment.setChecked(True)
 
@@ -469,8 +469,8 @@ class CoverageTableController(object):
 
         # prompt the user for a new function name
         ok, new_name = prompt_string(
-            "Please enter function name",
-            "Rename Function",
+            "请输入函数名称",
+            "重命名函数",
             original_name
            )
 
@@ -493,8 +493,8 @@ class CoverageTableController(object):
 
         # prompt the user for a new function name
         ok, prefix = prompt_string(
-            "Please enter a function prefix",
-            "Prefix Function(s)",
+            "请输入函数前缀",
+            "函数添加前缀",
             "MyPrefix"
            )
 
@@ -572,7 +572,7 @@ class CoverageTableController(object):
         Dump the orphan coverage data.
         """
         coverage = self.lctx.director.coverage
-        lmsg("Orphan coverage addresses for %s:" % coverage.name)
+        lmsg("%s 的孤立覆盖率地址:" % coverage.name)
         self._dump_addresses(coverage.orphan_addresses)
 
     def dump_internal(self):
@@ -667,8 +667,8 @@ class CoverageTableController(object):
         # we construct kwargs here for cleaner PySide/PyQt5 compatibility
         kwargs = \
         {
-            "filter": "HTML Files (*.html)",
-            "caption": "Save HTML Report",
+            "filter": "HTML 文件 (*.html)",
+            "caption": "保存 HTML 报告",
         }
 
         if USING_PYQT5:
@@ -688,7 +688,7 @@ class CoverageTableController(object):
         with open(filename, "w") as fd:
             fd.write(self._model.to_html())
 
-        lmsg("Saved HTML report to %s" % filename)
+        lmsg("已保存 HTML 报告到 %s" % filename)
 
     #---------------------------------------------------------------------------
     # Internal
@@ -741,25 +741,25 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
     # column headers of the table
     COLUMN_HEADERS = \
     {
-        COV_PERCENT:  "Cov %",
-        FUNC_NAME:    "Func Name",
-        FUNC_ADDR:    "Address",
-        BLOCKS_HIT:   "Blocks Hit",
-        INST_HIT:     "Instr. Hit",
-        FUNC_SIZE:    "Func Size",
+        COV_PERCENT:  "覆盖率 %",
+        FUNC_NAME:    "函数名",
+        FUNC_ADDR:    "地址",
+        BLOCKS_HIT:   "命中块",
+        INST_HIT:     "命中指令",
+        FUNC_SIZE:    "函数大小",
         COMPLEXITY:   "CC",
     }
 
     # column header tooltips
     COLUMN_TOOLTIPS = \
     {
-        COV_PERCENT:  "Coverage Percent",
-        FUNC_NAME:    "Function Name",
-        FUNC_ADDR:    "Function Address",
-        BLOCKS_HIT:   "Number of Basic Blocks Executed",
-        INST_HIT:     "Number of Instructions Executed",
-        FUNC_SIZE:    "Function Size (bytes)",
-        COMPLEXITY:   "Cyclomatic Complexity",
+        COV_PERCENT:  "覆盖率百分比",
+        FUNC_NAME:    "函数名称",
+        FUNC_ADDR:    "函数地址",
+        BLOCKS_HIT:   "已执行的基本块数量",
+        INST_HIT:     "已执行的指令数量",
+        FUNC_SIZE:    "函数大小（字节）",
+        COMPLEXITY:   "圈复杂度",
     }
 
     # sample column
@@ -853,6 +853,10 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
     #--------------------------------------------------------------------------
 
     def flags(self, index):
+        try:
+            return QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsSelectable
+        except AttributeError:
+            pass
         return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
 
     def rowCount(self, index=QtCore.QModelIndex()):
@@ -977,10 +981,10 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         Return a string to be displayed by the table
         """
         if column == self.FUNC_NAME:
-            return "Orphan Coverage"
+            return "孤立覆盖率"
         elif column == self.INST_HIT:
             return "%u" % len(self._director.coverage.orphan_addresses)
-        return "N/A"
+        return "不适用"
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """
@@ -1202,7 +1206,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         coverage = self._director.coverage
 
         # page title
-        title_html = "<h1>Lighthouse Coverage Report</h1>"
+        title_html = "<h1>Lighthouse 覆盖率报告</h1>"
 
         # summary details
         detail = lambda x,y: '<li><span class="detail">%s:</span> %s</li>' % (x,y)
@@ -1210,12 +1214,12 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         table_percent = self.get_modeled_coverage_percent()
         details = \
         [
-            detail("Target Binary", metadata.filename),
-            detail("Coverage Name", coverage.name),
-            detail("Coverage File", coverage.filepath),
-            detail("Database Coverage", "%1.2f%%" % database_percent),
-            detail("Table Coverage", "%1.2f%%" % table_percent),
-            detail("Timestamp", time.ctime()),
+            detail("目标二进制", metadata.filename),
+            detail("覆盖率名称", coverage.name),
+            detail("覆盖率文件", coverage.filepath),
+            detail("数据库覆盖率", "%1.2f%%" % database_percent),
+            detail("表格覆盖率", "%1.2f%%" % table_percent),
+            detail("时间戳", time.ctime()),
         ]
         list_html = "<ul>%s</ul>" % '\n'.join(details)
         list_css = \

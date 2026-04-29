@@ -82,16 +82,15 @@ def catch_errors(func):
             full_error = st + ex
             full_error = ''.join(full_error).splitlines()
 
-            lmsg("Lighthouse experienced an error... please file an issue on GitHub with this traceback:")
+            lmsg("Lighthouse 发生错误，请带上以下 traceback 到 GitHub 提交 issue:")
             lmsg("")
             for line in full_error:
                 lmsg(line)
 
             # notify the user that a bug occurred
             disassembler.warning(
-                "Something bad happend to Lighthouse :-(\n\n" \
-                "Please file an issue on GitHub with the traceback from your disassembler console."
+                "Lighthouse 发生了内部错误。\n\n" \
+                "请将反汇编器控制台中的 traceback 一并提交到 GitHub issue。"
             )
 
     return wrap
-

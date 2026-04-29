@@ -43,8 +43,8 @@ def async_update_check(current_version, callback):
         return
 
     # convert version #'s to integer for easy compare...
-    version_remote = int(''.join(re.findall('\d+', remote_version)))
-    version_local = int(''.join(re.findall('\d+', current_version)))
+    version_remote = int(''.join(re.findall(r'\d+', remote_version)))
+    version_local = int(''.join(re.findall(r'\d+', current_version)))
 
     # no updates available...
     logger.debug(" - Local: '%s' vs Remote: '%s'" % (current_version, remote_version))
@@ -53,10 +53,9 @@ def async_update_check(current_version, callback):
         return
 
     # notify the user if an update is available
-    update_message = "An update is available for Lighthouse!\n\n" \
-                     " -  Latest Version: %s\n" % (remote_version) + \
-                    " - Current Version: %s\n\n" % (current_version) + \
-                    "Please go download the update from GitHub."
+    update_message = "Lighthouse 有可用更新。\n\n" \
+                    " - 最新版本: %s\n" % (remote_version) + \
+                    " - 当前版本: %s\n\n" % (current_version) + \
+                    "请前往 GitHub 下载更新。"
 
     callback(update_message)
-

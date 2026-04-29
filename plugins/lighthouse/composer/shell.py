@@ -85,7 +85,7 @@ class ComposingShell(QtWidgets.QWidget):
         """
 
         # the composer label at the head of the shell
-        self._line_label = QtWidgets.QLabel("Composer")
+        self._line_label = QtWidgets.QLabel("组合")
         self._line_label.setStyleSheet("QLabel { margin: 0 1ex 0 1ex }")
         self._line_label.setAlignment(QtCore.Qt.AlignCenter)
         self._line_label.setFont(self._font)
@@ -298,7 +298,7 @@ class ComposingShell(QtWidgets.QWidget):
         #
 
         if self.is_jump(text) and self._table_view:
-            self._line_label.setText("Jump")
+            self._line_label.setText("跳转")
             self._highlight_jump()
             return
 
@@ -359,7 +359,7 @@ class ComposingShell(QtWidgets.QWidget):
         #
 
         if text == "/":
-            self._line_label.setText("Search")
+            self._line_label.setText("搜索")
             return
 
         #
@@ -563,7 +563,7 @@ class ComposingShell(QtWidgets.QWidget):
         """
 
         # reset the shell head text
-        self._line_label.setText("Composer")
+        self._line_label.setText("组合")
 
         # attempt to parse & execute a composition
         try:
@@ -631,7 +631,7 @@ class ComposingShell(QtWidgets.QWidget):
         #
 
         if self._parser_error:
-            self._ui_hint_tooltip("Invalid Composition", self._parser_error.error_index)
+            self._ui_hint_tooltip("组合表达式无效", self._parser_error.error_index)
             return
 
         #
@@ -649,8 +649,8 @@ class ComposingShell(QtWidgets.QWidget):
         #
 
         ok, coverage_name = prompt_string(
-            "Composition Name:",
-            "Please enter a name for this composition",
+            "组合名称:",
+            "请输入该组合覆盖率的名称",
             "COMP_%s" % self.text
         )
 

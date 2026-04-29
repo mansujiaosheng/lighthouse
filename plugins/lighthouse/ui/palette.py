@@ -158,8 +158,8 @@ class LighthousePalette(object):
             pass
 
         disassembler.warning(
-            "Failed to load Lighthouse user theme!\n\n"
-            "Please check the console for more information..."
+            "加载 Lighthouse 用户主题失败。\n\n"
+            "请查看控制台获取更多信息。"
         )
 
         #
@@ -169,7 +169,7 @@ class LighthousePalette(object):
 
         loaded = self._load_preferred_theme(fallback=True)
         if not loaded:
-            lmsg("Could not load Lighthouse fallback theme!") # this is a bad place to be...
+            lmsg("无法加载 Lighthouse 备用主题。") # this is a bad place to be...
             return
 
         logger.debug(" - warmup complete, using hint-recommended theme!")
@@ -183,9 +183,9 @@ class LighthousePalette(object):
         # create & configure a Qt File Dialog for immediate use
         file_dialog = QtWidgets.QFileDialog(
             None,
-            "Open Lighthouse theme file",
+            "打开 Lighthouse 主题文件",
             self._last_directory,
-            "JSON Files (*.json)"
+            "JSON 文件 (*.json)"
         )
         file_dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
 
@@ -202,7 +202,7 @@ class LighthousePalette(object):
         file_dir = os.path.abspath(os.path.dirname(filename))
         user_dir = os.path.abspath(self.get_user_theme_dir())
         if file_dir != user_dir:
-            text = "Please install your Lighthouse theme into the user theme directory:\n\n" + user_dir
+            text = "请将 Lighthouse 主题安装到用户主题目录:\n\n" + user_dir
             disassembler.warning(text)
             return
 
@@ -228,8 +228,8 @@ class LighthousePalette(object):
         # if the selected theme fails to load, throw a visible warning
         if not self._load_theme(filename):
             disassembler.warning(
-                "Failed to load Lighthouse user theme!\n\n"
-                "Please check the console for more information..."
+                "加载 Lighthouse 用户主题失败。\n\n"
+                "请查看控制台获取更多信息。"
             )
             return
 
@@ -365,13 +365,13 @@ class LighthousePalette(object):
         logger.debug(" - Validating theme fields for '%s'..." % theme["name"])
         user_fields = theme.get("fields", None)
         if not user_fields:
-            lmsg("Could not find theme 'fields' definition")
+            lmsg("找不到主题的 'fields' 定义")
             return False
 
         # check that all the 'required' fields exist in the given theme
         for field in self._required_fields:
             if field not in user_fields:
-                lmsg("Could not find required theme field '%s'" % field)
+                lmsg("找不到必需的主题字段 '%s'" % field)
                 return False
 
         # theme looks good enough for now...
@@ -388,12 +388,12 @@ class LighthousePalette(object):
 
         # reading file from dsik failed
         except OSError:
-            lmsg("Could not open theme file at '%s'" % filepath)
+            lmsg("无法打开主题文件 '%s'" % filepath)
             return False
 
         # JSON decoding failed
         except JSONDecodeError as e:
-            lmsg("Failed to decode theme '%s' to json" % filepath)
+            lmsg("无法将主题 '%s' 解码为 JSON" % filepath)
             lmsg(" - " + str(e))
             return False
 
@@ -405,7 +405,7 @@ class LighthousePalette(object):
         try:
             self._apply_theme(theme)
         except Exception as e:
-            lmsg("Failed to load Lighthouse user theme\n%s" % e)
+            lmsg("加载 Lighthouse 用户主题失败\n%s" % e)
             return False
 
         # return success
@@ -546,10 +546,8 @@ class LighthousePalette(object):
         #   lmao, don't ask me why they forgot about this attribute from 5.0 - 5.6
         #
 
-        if disassembler.NAME == "BINJA":
-            test_widget.setAttribute(QtCore.Qt.WA_DontShowOnScreen)
-        else:
-            test_widget.setAttribute(103) # taken from http://doc.qt.io/qt-5/qt.html
+        attribute = qt_widget_attribute("WA_DontShowOnScreen", 103)
+        test_widget.setAttribute(attribute)
 
 
         # render the (invisible) widget

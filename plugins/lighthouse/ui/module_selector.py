@@ -50,8 +50,8 @@ class ModuleSelector(QtWidgets.QDialog):
         """
         Initialize UI elements.
         """
-        self.setWindowTitle("Select module matching this database")
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowTitle("选择匹配当前数据库的模块")
+        set_window_flag(self, QtCore.Qt.WindowContextHelpButtonHint, False)
         self.setModal(True)
 
         self._font = self.font()
@@ -72,13 +72,13 @@ class ModuleSelector(QtWidgets.QDialog):
         """
 
         description_text = \
-        "Lighthouse could not automatically identify the target module in the given coverage file:<br />" \
+        "Lighthouse 无法自动识别该覆盖率文件中的目标模块:<br />" \
         "<br />" \
-        "-- <b>Target:</b> {0}<br />" \
-        "-- <b>Coverage File:</b> {1}<br />" \
+        "-- <b>目标:</b> {0}<br />" \
+        "-- <b>覆盖率文件:</b> {1}<br />" \
         "<br />" \
-        "Please double click the name of the module that matches this database, or close this dialog<br />" \
-        "if you do not see your binary listed in the table below...".format(self._target_name, self._coverage_file)
+        "请双击与当前数据库匹配的模块名称。<br />" \
+        "如果下表中没有目标二进制文件，请直接关闭此对话框。".format(self._target_name, self._coverage_file)
 
         self._label_description = QtWidgets.QLabel(description_text)
         self._label_description.setTextFormat(QtCore.Qt.RichText)
@@ -86,11 +86,11 @@ class ModuleSelector(QtWidgets.QDialog):
         #self._label_description.setWordWrap(True)
 
         # a checkbox to save the user selected alias to the database
-        self._checkbox_remember = QtWidgets.QCheckBox("Remember target module alias for this session")
+        self._checkbox_remember = QtWidgets.QCheckBox("在本次会话中记住目标模块别名")
         self._checkbox_remember.setFont(self._font)
 
         # a checkbox to ignore future 'missing coverage' / select module warnings
-        self._checkbox_ignore_missing = QtWidgets.QCheckBox("Suppress this dialog for the remaining coverage files")
+        self._checkbox_ignore_missing = QtWidgets.QCheckBox("对剩余覆盖率文件不再显示此对话框")
         self._checkbox_ignore_missing.setFont(self._font)
 
     def _ui_init_table(self):
@@ -105,7 +105,7 @@ class ModuleSelector(QtWidgets.QDialog):
 
         # Create a simple table / list
         self._table.setColumnCount(1)
-        self._table.setHorizontalHeaderLabels(["Module Name"])
+        self._table.setHorizontalHeaderLabels(["模块名称"])
 
         # left align text in column headers
         self._table.horizontalHeaderItem(0).setTextAlignment(QtCore.Qt.AlignLeft)

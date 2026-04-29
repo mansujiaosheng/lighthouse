@@ -117,14 +117,14 @@ class LighthouseBinja(LighthouseCore):
     def _interactive_load_file(self, context):
         dctx = disassembler.binja_get_bv_from_dock()
         if not dctx:
-            disassembler.warning("Lighthouse requires an open BNDB to load coverage.")
+            disassembler.warning("Lighthouse 需要先打开一个 BNDB 才能加载覆盖率。")
             return
         super(LighthouseBinja, self).interactive_load_file(dctx)
 
     def _interactive_load_batch(self, context):
         dctx = disassembler.binja_get_bv_from_dock()
         if not dctx:
-            disassembler.warning("Lighthouse requires an open BNDB to load coverage.")
+            disassembler.warning("Lighthouse 需要先打开一个 BNDB 才能加载覆盖率。")
             return
         super(LighthouseBinja, self).interactive_load_batch(dctx)
 
@@ -175,7 +175,7 @@ class LighthouseBinja(LighthouseCore):
         # right click context menu that is being shown...
         #
 
-        action = "Coverage Xref"
+        action = "覆盖率交叉引用"
         UIAction.registerAction(action)
         action_handler = view.actionHandler()
         action_handler.bindAction(action, UIAction(self._open_coverage_xref))
@@ -205,7 +205,7 @@ class LighthouseBinja(LighthouseCore):
     def _open_coverage_overview(self, context):
         dctx = disassembler.binja_get_bv_from_dock()
         if not dctx:
-            disassembler.warning("Lighthouse requires an open BNDB to open the overview.")
+            disassembler.warning("Lighthouse 需要先打开一个 BNDB 才能打开总览。")
             return
         super(LighthouseBinja, self).open_coverage_overview(dctx)
 
@@ -219,10 +219,11 @@ class LighthouseBinja(LighthouseCore):
     # Binja Actions
     #--------------------------------------------------------------------------
 
-    ACTION_LOAD_FILE         = "Lighthouse\\Load code coverage file..."
-    ACTION_LOAD_BATCH        = "Lighthouse\\Load code coverage batch..."
-    ACTION_COVERAGE_XREF     = "Lighthouse\\Coverage Xref"
-    ACTION_COVERAGE_OVERVIEW = "Lighthouse\\Open Coverage Overview"
+    ACTION_LOAD_FILE         = "Lighthouse\\加载代码覆盖率文件..."
+    ACTION_LOAD_BATCH        = "Lighthouse\\批量加载代码覆盖率..."
+    ACTION_GENERATE_COVERAGE = "Lighthouse\\运行并加载覆盖率..."
+    ACTION_COVERAGE_XREF     = "Lighthouse\\覆盖率交叉引用"
+    ACTION_COVERAGE_OVERVIEW = "Lighthouse\\打开覆盖率总览"
 
     def _install_load_file(self):
         action = self.ACTION_LOAD_FILE
@@ -237,6 +238,9 @@ class LighthouseBinja(LighthouseCore):
         UIActionHandler.globalActions().bindAction(action, UIAction(self._interactive_load_batch))
         Menu.mainMenu("Plugins").addAction(action, "Loading", 1)
         logger.info("Installed the 'Code coverage batch' menu entry")
+
+    def _install_generate_coverage(self):
+        pass
 
     def _install_open_coverage_xref(self):
         action = self.ACTION_COVERAGE_XREF
@@ -256,6 +260,8 @@ class LighthouseBinja(LighthouseCore):
     def _uninstall_load_file(self):
         pass
     def _uninstall_load_batch(self):
+        pass
+    def _uninstall_generate_coverage(self):
         pass
     def _uninstall_open_coverage_xref(self):
         pass

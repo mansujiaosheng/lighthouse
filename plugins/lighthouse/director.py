@@ -8,7 +8,7 @@ import collections
 from lighthouse.util.misc import *
 from lighthouse.util.debug import *
 from lighthouse.util.python import *
-from lighthouse.util.qt import await_future, await_lock, flush_qt_events
+from lighthouse.util.qt import await_future, await_lock, flush_qt_events, qt_exec
 from lighthouse.util.disassembler import disassembler
 
 from lighthouse.ui import ModuleSelector
@@ -28,6 +28,11 @@ HOT_SHELL       = "Hot Shell"
 NEW_COMPOSITION = "New Composition"
 AGGREGATE       = "Aggregate"
 SPECIAL_NAMES   = set([HOT_SHELL, AGGREGATE, NEW_COMPOSITION])
+SPECIAL_NAME_LABELS = {
+    HOT_SHELL: "实时组合",
+    NEW_COMPOSITION: "新建组合",
+    AGGREGATE: "聚合覆盖率",
+}
 
 AGGREGATE_ALIAS = '*'
 ASCII_SHORTHAND = list(string.ascii_uppercase)
@@ -388,7 +393,7 @@ class CoverageDirector(object):
 
         for i, filepath in enumerate(filepaths, 1):
             logger.debug("-"*50)
-            progress_callback("Aggregating batch data %u/%u" % (i, len(filepaths)))
+            progress_callback("正在聚合批量数据 %u/%u" % (i, len(filepaths)))
 
             # attempt to load coverage data from disk
             try:
@@ -464,7 +469,7 @@ class CoverageDirector(object):
 
         for i, filepath in enumerate(filepaths, 1):
             logger.debug("-"*50)
-            progress_callback("Loading coverage %u/%u" % (i, len(filepaths)))
+            progress_callback("正在加载覆盖率 %u/%u" % (i, len(filepaths)))
 
             # attempt to load coverage data from disk
             try:
@@ -508,7 +513,7 @@ class CoverageDirector(object):
         # recompute the aggregate set with the newly loaded coverage
         #
 
-        progress_callback("Recomputing coverage aggregate...")
+        progress_callback("正在重新计算聚合覆盖率...")
         self.resume_aggregation()
 
         #----------------------------------------------------------------------
@@ -560,7 +565,7 @@ class CoverageDirector(object):
             #
 
             dialog = ModuleSelector(database_target, coverage_file.modules, coverage_file.filepath)
-            result = dialog.exec_()
+            result = qt_exec(dialog)
 
             # check if the user opted to ignore future warnings for missing coverage
             if dialog.ignore_missing:
@@ -616,7 +621,7 @@ class CoverageDirector(object):
             pass
 
         # well, this one is probably the fault of the CoverageFile author...
-        raise NotImplementedError("Incomplete CoverageFile implementation")
+            raise NotImplementedError("CoverageFile 实现不完整")
 
     def _suggest_coverage_name(self, filepath):
         """
@@ -786,7 +791,7 @@ class CoverageDirector(object):
 
         # ensure a coverage mapping actually exists for the given coverage_name
         if not (coverage_name in self.all_names):
-            raise ValueError("No coverage matching '%s' was found" % coverage_name)
+            raise ValueError("未找到匹配 '%s' 的覆盖率" % coverage_name)
 
         # if the given name is already active, there's nothing to do
         if self.coverage_name == coverage_name:
@@ -897,7 +902,7 @@ class CoverageDirector(object):
         elif coverage_name == AGGREGATE:
             self._delete_aggregate_coverage()
         else:
-            raise ValueError("Cannot delete %s, does not exist" % coverage_name)
+            raise ValueError("无法删除 %s，该覆盖率不存在" % coverage_name)
 
         # notify any listeners that we have deleted coverage
         self._notify_coverage_deleted()
@@ -958,7 +963,7 @@ class CoverageDirector(object):
 
         # special cases that should be static
         if coverage_name == HOT_SHELL or coverage_name == NEW_COMPOSITION:
-            return coverage_name
+            return SPECIAL_NAME_LABELS[coverage_name]
 
         symbol = self.get_shorthand(coverage_name)
         coverage = self.get_coverage(coverage_name)
@@ -972,7 +977,8 @@ class CoverageDirector(object):
         #   eg: 'A - 73.45% - drcov.boombox.exe.03820.0000.proc.log'
         #
 
-        return "%s - %s%% - %s" % (symbol, percent_str, coverage_name)
+        label = SPECIAL_NAME_LABELS.get(coverage_name, coverage_name)
+        return "%s - %s%% - %s" % (symbol, percent_str, label)
 
     #----------------------------------------------------------------------
     # Aliases
@@ -1323,7 +1329,7 @@ class CoverageDirector(object):
         # unknown token? (this should never happen)
         #
 
-        raise ValueError("Invalid AST Token in Composition Tree")
+        raise ValueError("组合表达式树中存在无效 AST token")
 
     def _evaluate_coverage(self, coverage_token):
         """
@@ -1343,10 +1349,10 @@ class CoverageDirector(object):
         Complete refresh of the director and mapped coverage.
         """
         if disassembler[self.metadata.lctx].busy:
-            disassembler.warning("Cannot refresh Lighthouse while the disassembler is busy...")
+            disassembler.warning("反汇编器正忙，暂时无法刷新 Lighthouse。")
             return
 
-        disassembler.show_wait_box("Refreshing Lighthouse...")
+        disassembler.show_wait_box("正在刷新 Lighthouse...")
         self._refresh()
         disassembler.hide_wait_box()
 
@@ -1409,7 +1415,7 @@ class CoverageDirector(object):
         for i, name in enumerate(self.all_names, 1):
             logger.debug(" - %s" % name)
             disassembler.replace_wait_box(
-                "Refreshing coverage mapping %u/%u" % (i, len(self.all_names))
+                "正在刷新覆盖率映射 %u/%u" % (i, len(self.all_names))
             )
             coverage = self.get_coverage(name)
             coverage.update_metadata(self.metadata)

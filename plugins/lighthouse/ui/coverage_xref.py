@@ -41,8 +41,8 @@ class CoverageXref(QtWidgets.QDialog):
         """
         Initialize UI elements.
         """
-        self.setWindowTitle("Coverage Xrefs to 0x%X" % self.address)
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowTitle("0x%X 的覆盖率交叉引用" % self.address)
+        set_window_flag(self, QtCore.Qt.WindowContextHelpButtonHint, False)
         self.setModal(True)
 
         self._font = self.font()
@@ -69,7 +69,7 @@ class CoverageXref(QtWidgets.QDialog):
 
         # symbol, cov %, name, time
         self._table.setColumnCount(4)
-        self._table.setHorizontalHeaderLabels(["Sym", "Cov %", "Coverage Name", "Timestamp"])
+        self._table.setHorizontalHeaderLabels(["符号", "覆盖率 %", "覆盖率名称", "时间戳"])
         self._table.setColumnWidth(0, 45)
         self._table.setColumnWidth(1, 55)
         self._table.setColumnWidth(2, 400)

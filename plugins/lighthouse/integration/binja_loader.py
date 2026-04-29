@@ -28,5 +28,5 @@ try:
     lighthouse = LighthouseBinja()
     lighthouse.load()
 except Exception as e:
-    lmsg("Failed to initialize Lighthouse")
+    lmsg("初始化 Lighthouse 失败")
     logger.exception("Exception details:")

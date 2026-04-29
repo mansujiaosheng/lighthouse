@@ -646,7 +646,7 @@ class CoverageComboBoxModel(QtCore.QAbstractTableModel):
                 coverage = self._director.get_coverage(self._entries[index.row()])
                 return coverage.filepath if coverage.filepath else ""
             elif index.column() == COLUMN_DELETE:
-                return "Delete loaded coverage"
+                return "删除已加载的覆盖率"
 
         # icon display request
         elif role == QtCore.Qt.DecorationRole:
@@ -843,4 +843,3 @@ class ComboBoxDelegate(QtWidgets.QStyledItemDelegate):
 
         # pass through to the standard painting
         super(ComboBoxDelegate, self).paint(painter, option, index)
-

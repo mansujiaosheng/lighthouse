@@ -107,6 +107,38 @@ def normalize_to_dpi(font_size):
         return font_size + 2
     return font_size
 
+def qt_widget_attribute(name, fallback=None):
+    """
+    Resolve a Qt widget attribute across PyQt5 and PySide6.
+    """
+    attribute = getattr(QtCore.Qt, name, None)
+    if attribute is not None:
+        return attribute
+
+    widget_attributes = getattr(QtCore.Qt, "WidgetAttribute", None)
+    if widget_attributes is not None:
+        attribute = getattr(widget_attributes, name, None)
+        if attribute is not None:
+            return attribute
+
+    return fallback
+
+def set_window_flag(widget, flag, enabled):
+    """
+    Toggle a Qt window flag without relying on PyQt5 enum shims.
+    """
+    try:
+        widget.setWindowFlag(flag, enabled)
+        return
+    except (AttributeError, TypeError):
+        pass
+
+    current_flags = widget.windowFlags()
+    if enabled:
+        widget.setWindowFlags(current_flags | flag)
+    else:
+        widget.setWindowFlags(current_flags & ~flag)
+
 def prompt_string(label, title, default=""):
     """
     Prompt the user with a dialog to enter a string.
@@ -115,7 +147,7 @@ def prompt_string(label, title, default=""):
     """
     dpi_scale = get_dpi_scale()
     dlg = QtWidgets.QInputDialog(None)
-    dlg.setWindowFlags(dlg.windowFlags() & ~QtCore.Qt.WindowContextHelpButtonHint)
+    set_window_flag(dlg, QtCore.Qt.WindowContextHelpButtonHint, False)
     dlg.setInputMode(QtWidgets.QInputDialog.TextInput)
     dlg.setLabelText(label)
     dlg.setWindowTitle(title)
@@ -127,7 +159,7 @@ def prompt_string(label, title, default=""):
     dlg.setModal(True)
     dlg.show()
     dlg.setFocus(QtCore.Qt.PopupFocusReason)
-    ok = dlg.exec_()
+    ok = qt_exec(dlg)
     text = str(dlg.textValue())
     return (ok, text)
 

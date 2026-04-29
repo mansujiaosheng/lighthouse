@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Lighthouse for IDA 9&period;2&plus; &#x4e2d;&#x6587;&#x4f7f;&#x7528;&#x6587;&#x6863;</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="lighthouse-for-ida-92-中文使用文档">Lighthouse for IDA 9.2+ 中文使用文档</h1>
+<p>本文档面向 IDA Pro 9.2 及以上版本，说明 Lighthouse 的安装、覆盖率数据生成、加载、分析和常见问题排查流程。</p>
+<h2 id="1-插件简介">1. 插件简介</h2>
+<p>Lighthouse 是一个面向逆向工程场景的代码覆盖率浏览与分析插件。它可以把动态执行产生的覆盖率数据映射回 IDA 数据库，并在反汇编视图、函数图、Hex-Rays 伪代码和覆盖率总览窗口中展示命中情况。</p>
+<p>典型用途包括：</p>
+<ul>
+<li>对比不同输入样本触发的代码路径。</li>
+<li>快速定位 fuzzing、调试或动态插桩命中的函数与基本块。</li>
+<li>分析多份覆盖率之间的交集、差集和并集。</li>
+<li>反查某个基本块由哪些覆盖率样本命中。</li>
+<li>导出简单的 HTML 覆盖率报告。</li>
+</ul>
+<h2 id="2-ida-92-兼容性说明">2. IDA 9.2+ 兼容性说明</h2>
+<p>IDA 9.2 起官方将 IDAPython 的 Qt 绑定迁移到 Qt 6 / PySide6。这个版本的 Lighthouse 已做以下适配：</p>
+<ul>
+<li>在 IDA 9.2 及以上优先加载 <code>PySide6</code>，旧版 IDA 继续兼容 <code>PyQt5</code>。</li>
+<li>使用 <code>shiboken6.wrapInstance</code> 包装 IDA <code>TWidget</code>，不再只依赖 <code>sip.wrapinstance</code>。</li>
+<li>为 PySide6 补齐 <code>pyqtSignal</code>、<code>pyqtSlot</code>、<code>QAction</code>、<code>exec_()</code> 等 PyQt 风格兼容别名。</li>
+<li>增加 IDA 9.x 分模块 API 兼容层，将 <code>ida_kernwin</code>、<code>ida_bytes</code>、<code>ida_graph</code> 等模块中的常用符号回填到旧的 <code>idaapi</code> 调用路径。</li>
+<li>兼容新版 <code>IDB_Hooks.renamed()</code> 回调签名。</li>
+</ul>
+<p>参考资料：</p>
+<ul>
+<li>Hex-Rays 文档：<a href="https://docs.hex-rays.com/user-guide/plugins/migrating-pyqt5-code-to-pyside6">https://docs.hex-rays.com/user-guide/plugins/migrating-pyqt5-code-to-pyside6</a></li>
+<li>IDAPython 示例：<a href="https://docs.hex-rays.com/9.0/developer-guide/idapython/idapython-examples">https://docs.hex-rays.com/9.0/developer-guide/idapython/idapython-examples</a></li>
+</ul>
+<h2 id="3-环境要求">3. 环境要求</h2>
+<p>推荐环境：</p>
+<ul>
+<li>IDA Pro 9.2 或更高版本。</li>
+<li>IDAPython 随 IDA 自带的 Python 环境。</li>
+<li>Hex-Rays Decompiler 可选；没有反编译器时，Lighthouse 仍可在反汇编和图视图中工作。</li>
+</ul>
+<p>不需要安装额外 Python 依赖。不要把系统 Python 的 PySide6、PyQt5 或 sip 强行复制到 IDA 的 Python 环境中，优先使用 IDA 自带运行时。</p>
+<h2 id="4-安装">4. 安装</h2>
+<h3 id="41-查找-ida-用户插件目录">4.1 查找 IDA 用户插件目录</h3>
+<p>在 IDA 的 Python Console 中执行：</p>
+<pre><code class="language-python"><span class="hljs-keyword">import</span> idaapi, os
+<span class="hljs-built_in">print</span>(os.path.join(idaapi.get_user_idadir(), <span class="hljs-string">&quot;plugins&quot;</span>))
+</code></pre>
+<p>常见路径示例：</p>
+<ul>
+<li>Windows：<code>%APPDATA%\Hex-Rays\IDA Pro\plugins</code></li>
+<li>Linux：<code>~/.idapro/plugins</code></li>
+<li>macOS：<code>~/.idapro/plugins</code></li>
+</ul>
+<p>以控制台实际输出为准。</p>
+<h3 id="42-复制插件文件">4.2 复制插件文件</h3>
+<p>把本仓库 <code>plugins</code> 目录内的内容复制到 IDA 的用户插件目录。复制后结构应类似：</p>
+<pre><code class="language-text">&lt;IDA 用户目录&gt;/plugins/
+  lighthouse_plugin.py
+  lighthouse/
+    __init__.py
+    integration/
+    painting/
+    reader/
+    ui/
+    util/
+</code></pre>
+<p>注意是复制 <code>plugins</code> 目录里面的内容，而不是只复制顶层仓库。</p>
+<h3 id="43-重启并验证">4.3 重启并验证</h3>
+<p>重启 IDA 并打开任意 IDB。正常加载后，IDA Output 窗口会出现类似信息：</p>
+<pre><code class="language-text">[Lighthouse] Loaded v0.9.4 - (c) Markus Gaasedelen - 2026
+</code></pre>
+<p>菜单中会出现：</p>
+<ul>
+<li><code>File -&gt; Load file -&gt; Code coverage file...</code></li>
+<li><code>File -&gt; Load file -&gt; Code coverage batch...</code></li>
+<li><code>View -&gt; Open subviews -&gt; Coverage Overview</code></li>
+</ul>
+<p>如果菜单没有出现，请查看本文“常见问题排查”。</p>
+<h2 id="5-准备覆盖率数据">5. 准备覆盖率数据</h2>
+<p>Lighthouse 支持几类覆盖率格式：</p>
+<ul>
+<li><code>drcov</code>：DynamoRIO drcov 格式，常见于动态插桩。</li>
+<li><code>modoff</code>：模块名加偏移格式。</li>
+<li><code>trace</code>：绝对地址或基本块地址列表。</li>
+<li><code>tenet</code>：Tenet trace 相关格式。</li>
+</ul>
+<p>仓库提供了示例数据：</p>
+<pre><code class="language-text">testcase/drcov.log
+testcase/modoff.log
+testcase/trace.log
+</code></pre>
+<p>也提供了采集脚本目录：</p>
+<pre><code class="language-text">coverage/frida/
+coverage/pin/
+</code></pre>
+<p>覆盖率数据必须能映射到当前 IDA 数据库中的目标模块。最常见的问题是覆盖率日志里的模块名、镜像基址或文件名与当前 IDB 不匹配。</p>
+<h2 id="6-加载单个覆盖率文件">6. 加载单个覆盖率文件</h2>
+<ol>
+<li>在 IDA 中打开并完成目标程序分析。</li>
+<li>点击 <code>File -&gt; Load file -&gt; Code coverage file...</code>。</li>
+<li>选择一个或多个覆盖率文件。</li>
+<li>如果 Lighthouse 无法自动匹配模块，会弹出模块选择窗口。</li>
+<li>选择正确模块后，Lighthouse 会构建元数据并映射覆盖率。</li>
+</ol>
+<p>加载成功后：</p>
+<ul>
+<li>命中的指令或基本块会被高亮。</li>
+<li><code>Coverage Overview</code> 会显示每个函数的覆盖率。</li>
+<li>覆盖率下拉框会出现新加载的数据集。</li>
+</ul>
+<h2 id="7-批量加载覆盖率">7. 批量加载覆盖率</h2>
+<p>批量加载适合 fuzzing 或大量样本分析。</p>
+<ol>
+<li>点击 <code>File -&gt; Load file -&gt; Code coverage batch...</code>。</li>
+<li>选择多份覆盖率文件。</li>
+<li>输入批量覆盖率名称。</li>
+<li>Lighthouse 会把多份覆盖率聚合为一个数据集，并记录每个基本块由哪些文件命中。</li>
+</ol>
+<p>批量加载后可以使用右键菜单的 <code>Xrefs coverage sets...</code> 查看某个地址被哪些覆盖率文件命中。</p>
+<h2 id="8-coverage-overview-窗口">8. Coverage Overview 窗口</h2>
+<p>打开方式：</p>
+<pre><code class="language-text">View -&gt; Open subviews -&gt; Coverage Overview
+</code></pre>
+<p>主要列含义：</p>
+<ul>
+<li>函数名：IDA 中的函数名称。</li>
+<li>地址：函数起始地址。</li>
+<li>覆盖率：该函数被覆盖的指令或基本块比例。</li>
+<li>复杂度：函数控制流复杂度近似值。</li>
+<li>命中统计：已执行指令、基本块等统计信息。</li>
+</ul>
+<p>常用操作：</p>
+<ul>
+<li>单击行：定位到函数。</li>
+<li>右键函数：复制名称、复制地址、重命名、批量加前缀、清理前缀。</li>
+<li>点击表头：按覆盖率、地址、名称等排序。</li>
+<li>覆盖率下拉框：切换、删除或管理已加载覆盖率。</li>
+</ul>
+<h2 id="9-覆盖率组合-shell">9. 覆盖率组合 Shell</h2>
+<p><code>Coverage Overview</code> 底部的输入框可以用于组合覆盖率、过滤函数和跳转。</p>
+<h3 id="91-覆盖率别名">9.1 覆盖率别名</h3>
+<p>加载的覆盖率会自动分配大写字母别名：</p>
+<pre><code class="language-text">A, B, C, ... Z
+</code></pre>
+<p>聚合覆盖率使用：</p>
+<pre><code class="language-text">*
+</code></pre>
+<h3 id="92-组合运算">9.2 组合运算</h3>
+<p>支持的运算符：</p>
+<ul>
+<li><code>|</code>：并集。</li>
+<li><code>&amp;</code>：交集。</li>
+<li><code>^</code>：异或。</li>
+<li><code>-</code>：差集。</li>
+<li><code>(...)</code>：控制优先级。</li>
+</ul>
+<p>示例：</p>
+<pre><code class="language-text">A &amp; B
+</code></pre>
+<p>表示同时被 A 和 B 命中的代码。</p>
+<pre><code class="language-text">A - B
+</code></pre>
+<p>表示只被 A 命中、没有被 B 命中的代码。</p>
+<pre><code class="language-text">(A | B) - C
+</code></pre>
+<p>表示 A 或 B 命中，但 C 没有命中的代码。</p>
+<p>组合结果会生成一个新的可选覆盖率视图，便于继续浏览和对比。</p>
+<h3 id="93-搜索过滤">9.3 搜索过滤</h3>
+<p>输入 <code>/</code> 开头的内容可以过滤函数：</p>
+<pre><code class="language-text">/parse
+</code></pre>
+<p>这会只显示名称中包含 <code>parse</code> 的函数，并重新计算当前可见函数范围内的覆盖率统计。</p>
+<h3 id="94-跳转">9.4 跳转</h3>
+<p>输入地址或函数名可以快速跳转：</p>
+<pre><code class="language-text">401000
+</code></pre>
+<p>或：</p>
+<pre><code class="language-text">sub_401000
+</code></pre>
+<h2 id="10-覆盖率反查">10. 覆盖率反查</h2>
+<p>加载覆盖率后，在 IDA 反汇编视图或图视图中右键基本块或指令，选择：</p>
+<pre><code class="language-text">Xrefs coverage sets...
+</code></pre>
+<p>该窗口会列出命中当前地址的覆盖率数据集或具体文件。双击条目可以切换到对应覆盖率，或从批量数据中展开单份样本进行分析。</p>
+<h2 id="11-hex-rays-伪代码高亮">11. Hex-Rays 伪代码高亮</h2>
+<p>如果当前 IDA 安装了 Hex-Rays Decompiler，Lighthouse 会尝试把覆盖率映射到伪代码行。</p>
+<p>注意事项：</p>
+<ul>
+<li>伪代码高亮依赖 IDA 的 ctree 到基本块映射，复杂优化或异常控制流可能不完全精确。</li>
+<li>如果覆盖率已经加载但伪代码没有刷新，可以关闭并重新打开伪代码窗口，或切换一次覆盖率数据集。</li>
+<li>没有 Hex-Rays 时不影响反汇编和图视图高亮。</li>
+</ul>
+<h2 id="12-html-覆盖率报告">12. HTML 覆盖率报告</h2>
+<p>在 <code>Coverage Overview</code> 的设置菜单中选择：</p>
+<pre><code class="language-text">Generate HTML report
+</code></pre>
+<p>报告适合分享函数级覆盖情况。它不是完整交互式报告，重点用于快速查看当前覆盖率名称、函数覆盖率和基本统计。</p>
+<h2 id="13-主题与配色">13. 主题与配色</h2>
+<p>Lighthouse 会根据 IDA 当前界面颜色推断使用浅色或深色主题。你也可以在设置菜单中切换主题。</p>
+<p>主题文件位于：</p>
+<pre><code class="language-text">plugins/lighthouse/ui/resources/themes/
+</code></pre>
+<p>用户自定义主题可以放到 Lighthouse 用户目录中。主题是 JSON 文件，修改前建议先复制默认主题作为模板。</p>
+<h2 id="14-推荐工作流">14. 推荐工作流</h2>
+<p>单样本分析：</p>
+<ol>
+<li>在 IDA 中打开目标程序并等待自动分析完成。</li>
+<li>加载该样本的覆盖率文件。</li>
+<li>在 <code>Coverage Overview</code> 中按覆盖率排序。</li>
+<li>跳转到高覆盖率或关键函数查看命中路径。</li>
+</ol>
+<p>多样本对比：</p>
+<ol>
+<li>分别加载多个覆盖率文件。</li>
+<li>使用 <code>A - B</code> 查找样本 A 独有路径。</li>
+<li>使用 <code>A &amp; B</code> 查找公共路径。</li>
+<li>使用 <code>(A | B | C) - D</code> 查找一组样本与另一组样本的差异路径。</li>
+</ol>
+<p>Fuzzing 结果分析：</p>
+<ol>
+<li>使用批量加载聚合大量覆盖率。</li>
+<li>在感兴趣基本块上使用覆盖率反查。</li>
+<li>双击具体命中样本，单独展开分析。</li>
+<li>给关键函数批量加前缀，辅助后续审计。</li>
+</ol>
+<h2 id="15-常见问题排查">15. 常见问题排查</h2>
+<h3 id="151-ida-启动后没有菜单">15.1 IDA 启动后没有菜单</h3>
+<p>检查：</p>
+<ul>
+<li><code>lighthouse_plugin.py</code> 是否直接位于 IDA 用户插件目录下。</li>
+<li><code>lighthouse/</code> 包目录是否与 <code>lighthouse_plugin.py</code> 同级。</li>
+<li>IDA Output 窗口是否有 Python 异常。</li>
+<li>是否把仓库根目录整体复制到了插件目录，导致目录层级多了一层。</li>
+</ul>
+<h3 id="152-提示无法导入-pyqt5pyside6-或-sip">15.2 提示无法导入 PyQt5、PySide6 或 sip</h3>
+<p>IDA 9.2+ 应使用 IDA 自带的 <code>PySide6</code> 和 <code>shiboken6</code>。请确认使用的是本适配版本的插件，并避免从系统 Python 混用 Qt 绑定。</p>
+<h3 id="153-加载覆盖率后没有任何命中">15.3 加载覆盖率后没有任何命中</h3>
+<p>常见原因：</p>
+<ul>
+<li>覆盖率日志的模块名与当前 IDB 不匹配。</li>
+<li>日志记录的是偏移，但 IDB 镜像基址不同。</li>
+<li>目标程序不是生成覆盖率时运行的同一个文件。</li>
+<li>IDA 自动分析未完成。</li>
+</ul>
+<p>处理建议：</p>
+<ul>
+<li>在模块选择窗口中手动选择正确模块。</li>
+<li>确认覆盖率日志中模块基址与 IDA <code>Edit -&gt; Segments -&gt; Rebase program...</code> 后的基址关系。</li>
+<li>用仓库 <code>testcase</code> 中的样例先验证插件本身可用。</li>
+</ul>
+<h3 id="154-覆盖率颜色没有刷新或残留">15.4 覆盖率颜色没有刷新或残留</h3>
+<p>可以尝试：</p>
+<ul>
+<li>切换覆盖率下拉框。</li>
+<li>在设置菜单中选择 <code>Force clear paint (slow!)</code>。</li>
+<li>关闭并重新打开 IDB。</li>
+<li>如果正在调试，先停止调试会话后再刷新。</li>
+</ul>
+<h3 id="155-coverage-overview-打开为空">15.5 Coverage Overview 打开为空</h3>
+<p>检查：</p>
+<ul>
+<li>当前覆盖率是否已经加载。</li>
+<li>当前 IDB 是否存在函数。</li>
+<li>自动分析是否完成。</li>
+<li>是否加载了与当前二进制无关的覆盖率数据。</li>
+</ul>
+<h3 id="156-批量加载很慢">15.6 批量加载很慢</h3>
+<p>批量加载会构建函数、基本块和指令元数据。大型 IDB 或上万份覆盖率会明显耗时。</p>
+<p>建议：</p>
+<ul>
+<li>先确认目标模块匹配正确，再批量导入。</li>
+<li>将无关覆盖率文件分批排除。</li>
+<li>对非常大的样本集先生成聚合覆盖率，再导入 IDA。</li>
+</ul>
+<h2 id="16-卸载">16. 卸载</h2>
+<p>关闭 IDA 后，从用户插件目录删除：</p>
+<pre><code class="language-text">lighthouse_plugin.py
+lighthouse/
+</code></pre>
+<p>重新启动 IDA 即可完成卸载。</p>
+<h2 id="17-开发者验证建议">17. 开发者验证建议</h2>
+<p>修改插件后建议至少做以下检查：</p>
+<ol>
+<li>
+<p>使用本机 Python 执行语法编译：</p>
+<pre><code class="language-powershell">python <span class="hljs-literal">-m</span> compileall <span class="hljs-literal">-q</span> plugins
+</code></pre>
+</li>
+<li>
+<p>在 IDA 9.2+ 打开测试程序 <code>testcase/boombox.exe</code>。</p>
+</li>
+<li>
+<p>加载 <code>testcase/drcov.log</code>。</p>
+</li>
+<li>
+<p>确认 <code>Coverage Overview</code>、反汇编高亮、图视图高亮、覆盖率组合和右键反查均可用。</p>
+</li>
+<li>
+<p>如果安装了 Hex-Rays，确认伪代码窗口能显示覆盖率高亮。</p>
+</li>
+</ol>
+
+            
+            
+        </body>
+        </html>

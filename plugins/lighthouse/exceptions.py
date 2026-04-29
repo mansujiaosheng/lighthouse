@@ -30,7 +30,7 @@ class CoverageException(LighthouseError):
 
     @property
     def verbose(self):
-        return "Error: %s\n\n%s" % (self.name, self.description)
+        return "错误: %s\n\n%s" % (self.name, self.description)
 
     def __str__(self):
         return self.message + " '%s'" % self.filepath
@@ -41,15 +41,15 @@ class CoverageParsingError(CoverageException):
     """
     name = "PARSE_FAILURE"
     description = \
-        "Failed to parse one or more of the selected coverage files!\n\n"  \
-        " Possible reasons:\n"                                             \
-        " - You selected a file that was *not* a coverage file.\n"         \
-        " - The selected coverage file is malformed or unreadable.\n"      \
-        " - A suitable parser for the coverage file is not installed.\n\n" \
-        "Please see the disassembler console for more info..."
+        "无法解析一个或多个选中的覆盖率文件。\n\n"  \
+        "可能原因:\n"                              \
+        " - 选中的文件不是覆盖率文件。\n"           \
+        " - 覆盖率文件格式错误或无法读取。\n"       \
+        " - 当前未安装适用于该文件的解析器。\n\n"   \
+        "请查看反汇编器控制台获取更多信息。"
 
     def __init__(self, filepath, tracebacks):
-        super(CoverageParsingError, self).__init__("Failed to parse coverage file", filepath)
+        super(CoverageParsingError, self).__init__("无法解析覆盖率文件", filepath)
         self.tracebacks = tracebacks
 
 class CoverageMissingError(CoverageException):
@@ -58,16 +58,15 @@ class CoverageMissingError(CoverageException):
     """
     name = "NO_COVERAGE_ERROR"
     description = \
-        "No usable coverage data was extracted from one of the selected files.\n\n" \
-        " Possible reasons:\n"                                                      \
-        " - You selected a coverage file for the wrong binary.\n"                   \
-        " - The name of the executable file used to generate this database\n"       \
-        "    is different than the one you collected coverage against.\n"           \
-        " - Your DBI failed to collect any coverage for this binary.\n\n"           \
-        "Please see the disassembler console for more info..."
+        "未能从某个选中的文件中提取可用覆盖率数据。\n\n" \
+        "可能原因:\n"                                      \
+        " - 选择了其他二进制文件的覆盖率文件。\n"           \
+        " - 生成当前数据库的可执行文件名称与采集覆盖率时不同。\n" \
+        " - DBI 工具没有采集到该二进制文件的任何覆盖率。\n\n" \
+        "请查看反汇编器控制台获取更多信息。"
 
     def __init__(self, filepath):
-        super(CoverageMissingError, self).__init__("No coverage extracted from file", filepath)
+        super(CoverageMissingError, self).__init__("未从文件中提取到覆盖率", filepath)
 
 class CoverageMappingAbsent(CoverageException):
     """
@@ -75,15 +74,15 @@ class CoverageMappingAbsent(CoverageException):
     """
     name = "NO_COVERAGE_MAPPED"
     description = \
-        "One or more of the loaded coverage files has no visibly mapped data.\n\n" \
-        " Possible reasons:\n"                                                     \
-        " - The loaded coverage data does not fall within defined functions.\n"    \
-        " - You loaded an absolute address trace with a different imagebase.\n"    \
-        " - The coverage data might be corrupt or malformed.\n\n"                  \
-        "Please see the disassembler console for more info..."
+        "一个或多个已加载的覆盖率文件没有可见的映射数据。\n\n" \
+        "可能原因:\n"                                           \
+        " - 覆盖率数据没有落在已定义函数范围内。\n"              \
+        " - 绝对地址 trace 的镜像基址与当前数据库不同。\n"       \
+        " - 覆盖率数据可能损坏或格式异常。\n\n"                  \
+        "请查看反汇编器控制台获取更多信息。"
 
     def __init__(self, coverage):
-        super(CoverageMappingAbsent, self).__init__("No coverage data could be mapped", coverage.filepath)
+        super(CoverageMappingAbsent, self).__init__("无法映射覆盖率数据", coverage.filepath)
         self.coverage = coverage
 
 class CoverageMappingSuspicious(CoverageException):
@@ -92,20 +91,16 @@ class CoverageMappingSuspicious(CoverageException):
     """
     name = "BAD_COVERAGE_MAPPING"
     description = \
-        "One or more of the loaded coverage files appears to be badly mapped.\n\n" \
-        " Possible reasons:\n"                                                     \
-        " - You selected the wrong binary/module to load coverage from.\n"         \
-        " - Your coverage file/data is for a different version of the\n"           \
-        "   binary that does not match what the disassembler has open.\n"          \
-        " - You recorded self-modifying code or something with very\n"             \
-        "    abnormal control flow (obfuscated code, malware, packers).\n"         \
-        " - The coverage data might be corrupt or malformed.\n\n"                  \
-        "This means that any coverage displayed by Lighthouse is PROBABLY\n"       \
-        "WRONG and is not be trusted because the coverage data does not\n"         \
-        "appear to match the disassembled binary."
+        "一个或多个已加载的覆盖率文件看起来映射异常。\n\n" \
+        "可能原因:\n"                                       \
+        " - 选择了错误的二进制文件或模块。\n"                \
+        " - 覆盖率文件对应的二进制版本与当前打开的数据库不匹配。\n" \
+        " - 目标存在自修改代码或异常控制流，例如混淆代码、恶意样本、加壳程序。\n" \
+        " - 覆盖率数据可能损坏或格式异常。\n\n"              \
+        "这意味着 Lighthouse 显示的覆盖率很可能不正确，不应直接信任。"
 
     def __init__(self, coverage):
-        super(CoverageMappingSuspicious, self).__init__("Coverage data appears badly mapped", coverage.filepath)
+        super(CoverageMappingSuspicious, self).__init__("覆盖率数据看起来映射异常", coverage.filepath)
         self.coverage = coverage
 
 #------------------------------------------------------------------------------
@@ -127,7 +122,7 @@ def warn_errors(errors, ignore=[]):
         #
 
         lmsg("-"*50)
-        lmsg("Files reporting %s:" % error_type.name)
+        lmsg("报告 %s 的文件:" % error_type.name)
         for error in error_list:
             lmsg(" - %s" % error.filepath)
 

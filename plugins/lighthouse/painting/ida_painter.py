@@ -5,6 +5,10 @@ import functools
 
 import idc
 import idaapi
+from lighthouse.util.disassembler.ida_compat import patch_idaapi
+
+patch_idaapi()
+
 from idaapi import clr_abits, set_abits, netnode, set_node_info
 
 from lighthouse.util import *

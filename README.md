@@ -14,6 +14,7 @@ Special thanks to [@0vercl0k](https://twitter.com/0vercl0k) for the inspiration.
 
 ## Releases
 
+* v0.9.4 -- IDA 9.2+ / PySide6 compatibility, IDAPython 9.x API shims, one-click bundled DynamoRIO drcov generation/loading for IDA, Chinese IDA usage documentation.
 * v0.9 -- Python 3 support, custom coverage formats, coverage cross-refs, theming subsystem, much more.
 * v0.8 -- Binary Ninja support, HTML coverage reports, consistent styling, many tweaks, bugfixes.
 * v0.7 -- Frida, C++ demangling, context menu, function prefixing, tweaks, bugfixes.
@@ -31,6 +32,8 @@ Lighthouse is a cross-platform (Windows, macOS, Linux) Python 2/3 plugin. It tak
 Use the instructions below for your respective disassembler.
 
 ## IDA Installation
+
+For IDA Pro 9.2 and newer, see the detailed Chinese guide: [docs/IDA_9_2_PLUS_USAGE_CN.md](docs/IDA_9_2_PLUS_USAGE_CN.md).
 
 1. From IDA's Python console, run the following command to find its plugin directory:
     - `import idaapi, os; print(os.path.join(idaapi.get_user_idadir(), "plugins"))`

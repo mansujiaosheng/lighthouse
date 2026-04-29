@@ -9,8 +9,12 @@ import functools
 import idaapi
 import idautils
 
-if int(idaapi.get_kernel_version()[0]) < 7:
-    idaapi.warning("Lighthouse has deprecated support for IDA 6, please upgrade.")
+from .ida_compat import patch_idaapi
+
+patch_idaapi()
+
+if int(idaapi.get_kernel_version().split(".", 1)[0]) < 7:
+    idaapi.warning("Lighthouse 已停止支持 IDA 6，请升级 IDA。")
     raise ImportError
 
 from .api import DisassemblerCoreAPI, DisassemblerContextAPI
@@ -70,12 +74,15 @@ class IDACoreAPI(DisassemblerCoreAPI):
 
         # retrieve IDA's version #
         disassembler_version = idaapi.get_kernel_version()
-        major, minor = map(int, disassembler_version.split("."))
+        version_parts = disassembler_version.split(".")
+        major = int(version_parts[0])
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+        patch = int(version_parts[2]) if len(version_parts) > 2 and version_parts[2].isdigit() else 0
 
         # save the version number components for later use
         self._version_major = major
         self._version_minor = minor
-        self._version_patch = 0
+        self._version_patch = patch
 
     #--------------------------------------------------------------------------
     # Properties
@@ -150,14 +157,12 @@ class IDACoreAPI(DisassemblerCoreAPI):
         self._dockable_factory[dockable_name] = create_widget_callback
 
     def create_dockable_widget(self, parent, dockable_name):
-        import sip
-
         # create a dockable widget, and save a reference to it for later use
         twidget = idaapi.create_empty_widget(dockable_name)
         self._dockable_widgets[dockable_name] = twidget
 
         # cast the IDA 'twidget' as a Qt widget for use
-        widget = sip.wrapinstance(int(twidget), QtWidgets.QWidget)
+        widget = self._twidget_to_qwidget(twidget)
         widget.name = dockable_name
         widget.visible = False
 
@@ -177,7 +182,7 @@ class IDACoreAPI(DisassemblerCoreAPI):
         #twidget = idaapi.TWidget__from_ptrval__(widget) NOTE: IDA 7.2+ only...
         twidget = self._dockable_widgets.pop(dockable_name)
         if not twidget:
-            self.warning("Could not open dockable window, because its reference is gone?!?")
+            self.warning("无法打开停靠窗口，因为窗口引用已经失效。")
             return
 
         # show the dockable widget
@@ -194,6 +199,22 @@ class IDACoreAPI(DisassemblerCoreAPI):
 
     def hide_dockable(self, dockable_name):
         pass # TODO/IDA: this should never actually be called by lighthouse right now
+
+    def _twidget_to_qwidget(self, twidget):
+        """
+        Cast an IDA TWidget to a Qt QWidget across PyQt5 and PySide6.
+        """
+        try:
+            widget = idaapi.PluginForm.TWidgetToPyQtWidget(twidget)
+            if widget:
+                return widget
+        except (AttributeError, TypeError):
+            pass
+
+        if not wrapinstance:
+            raise RuntimeError("No Qt pointer wrapper is available")
+
+        return wrapinstance(int(twidget), QtWidgets.QWidget)
 
     #--------------------------------------------------------------------------
     # Theme Prediction Helpers (Internal)
@@ -253,13 +274,13 @@ class IDACoreAPI(DisassemblerCoreAPI):
         # in favor of c41 (line-bg-default) as that's what we really want
         #
 
-        bg_color_text = get_string_between(html, '.c1 \{ background-color: ', ';')
+        bg_color_text = get_string_between(html, r'.c1 \{ background-color: ', ';')
         if bg_color_text:
             logger.debug(" - Extracted background-color '%s' from line-fg-default!" % bg_color_text)
             return QtGui.QColor(bg_color_text)
 
         # -- IDA 7.5 says c41 is /* line-bg-default */, a.k.a the bg color for disassembly text
-        bg_color_text = get_string_between(html, '.c41 \{ background-color: ', ';')
+        bg_color_text = get_string_between(html, r'.c41 \{ background-color: ', ';')
         if bg_color_text:
             logger.debug(" - Extracted background-color '%s' from line-bg-default!" % bg_color_text)
             return QtGui.QColor(bg_color_text)
@@ -291,8 +312,7 @@ class IDACoreAPI(DisassemblerCoreAPI):
         self._touch_ida_window(twidget)
 
         # locate the Qt Widget for a form and take 1px image slice of it
-        import sip
-        widget = sip.wrapinstance(int(twidget), QtWidgets.QWidget)
+        widget = self._twidget_to_qwidget(twidget)
         pixmap = widget.grab(QtCore.QRect(0, 10, widget.width(), 1))
 
         # convert the raw pixmap into an image (easier to interface with)
@@ -398,7 +418,7 @@ class IDAContextAPI(DisassemblerContextAPI):
 
 class RenameHooks(idaapi.IDB_Hooks):
 
-    def renamed(self, address, new_name, local_name):
+    def renamed(self, address, new_name, local_name, old_name=None):
         """
         Capture all IDA rename events.
         """
@@ -592,4 +612,3 @@ def lex_citem_indexes(line):
 
     # return all the citem indexes extracted from this line of text
     return indexes
-
