@@ -128,6 +128,8 @@ File -> Load file -> 运行并加载覆盖率...
 
 该功能会使用 DynamoRIO 的 `drcov` 工具执行当前 IDB 对应的 exe，程序退出后自动把生成的 `drcov*.log` 加载进 Lighthouse。
 
+插件会读取目标 exe 的 PE 头来判断 32 位或 64 位，并自动选择对应的 `bin32\drrun.exe` 或 `bin64\drrun.exe`。如果 DynamoRIO 返回架构不匹配错误，插件会自动尝试另一套 `drrun.exe`。
+
 本源码包已经在以下目录内置 DynamoRIO：
 
 ```text
@@ -146,7 +148,7 @@ plugins/lighthouse/third_party/dynamorio/bin32/drrun.exe
 1. 在 IDA 中打开目标 exe 对应的 IDB，并等待自动分析完成。
 2. 点击 `File -> Load file -> 运行并加载覆盖率...`。
 3. 如果插件没有找到 `drrun.exe`，会提示你选择 DynamoRIO 目录下的 `bin64\drrun.exe` 或 `bin32\drrun.exe`。
-4. 输入程序运行参数；没有参数可以留空。
+4. 输入程序运行参数；没有参数可以留空。如果程序使用 `scanf` / `cin` / `fgets` 从标准输入读取内容，把输入写到“标准输入内容”框里。多个输入按读取顺序写多行。
 5. 目标程序会在 DynamoRIO 下运行，退出后插件自动加载新生成的覆盖率日志。
 6. `覆盖率总览` 会自动打开并显示命中的函数、基本块和指令。
 
@@ -154,7 +156,7 @@ plugins/lighthouse/third_party/dynamorio/bin32/drrun.exe
 
 - `LIGHTHOUSE_DRRUN` 或 `DYNAMORIO_DRRUN` 环境变量指向的 `drrun.exe`。
 - `DYNAMORIO_HOME` 或 `DYNAMORIO_ROOT` 环境变量。
-- 插件目录下的 `lighthouse/third_party/dynamorio/bin64/drrun.exe`。
+- 插件目录下的 `lighthouse/third_party/dynamorio/bin64/drrun.exe` 或 `bin32/drrun.exe`。
 - 系统 `PATH` 中的 `drrun.exe`。
 
 DynamoRIO 是第三方运行时，随包附带其原始 `License.txt`、`README` 和 `ACKNOWLEDGEMENTS` 文件。
@@ -162,8 +164,10 @@ DynamoRIO 是第三方运行时，随包附带其原始 `License.txt`、`README`
 生成的日志默认保存在：
 
 ```text
-<IDA 用户目录>/lighthouse/drcov/<程序名_时间戳>/
+<目标 exe 所在目录>/lighthouse_drcov/<程序名_时间戳>/
 ```
+
+如果目标 exe 路径中包含单引号、反引号等可能导致 DynamoRIO 参数解析异常的字符，插件会自动复制或硬链接到临时安全路径执行，生成后再把日志搬回目标 exe 所在目录。
 
 注意：
 
@@ -216,9 +220,38 @@ View -> Open subviews -> Coverage Overview
 常用操作：
 
 - 单击行：定位到函数。
-- 右键函数：复制名称、复制地址、重命名、批量加前缀、清理前缀。
+- 右键函数：复制名称、复制地址、重命名、设置标签、清除标签、批量加前缀、清理前缀。
 - 点击表头：按覆盖率、地址、名称等排序。
 - 覆盖率下拉框：切换、删除或管理已加载覆盖率。
+
+### 9.1 搜索和标签
+
+覆盖率总览保留原版底部 Shell 搜索方式：
+
+```text
+/函数名
+/地址片段
+/标签
+```
+
+也可以在覆盖率表格中按 `Ctrl+F` 弹出搜索框。搜索会匹配函数名、函数地址和标签。
+
+在表格中右键函数，可以使用：
+
+```text
+设置标签
+清除标签
+批量设置标签
+批量清除标签
+```
+
+标签会保存到目标程序或 IDB 所在目录：
+
+```text
+<目标程序或 IDB 所在目录>/lighthouse_tags/<程序名>.tags.json
+```
+
+这样关闭 IDA 后再次打开同一个程序仍能继续使用之前的标签；切换到另一个程序时，不会看到上一个程序的标签。
 
 ## 10. 覆盖率组合 Shell
 

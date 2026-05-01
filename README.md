@@ -1,6 +1,115 @@
 # Lighthouse for IDA 9.2+ 中文使用文档
 
-本文档面向 IDA Pro 9.2 及以上版本，说明 Lighthouse 的安装、覆盖率数据生成、加载、分析和常见问题排查流程。
+这是一个适配 IDA Pro 9.2 及以上版本的 Lighthouse 修改版。它保留原版覆盖率浏览、覆盖率组合、函数级覆盖率总览等能力，并补充了 IDA 9.2+/PySide6 兼容、中文界面、内置 DynamoRIO、以及“一键运行并加载覆盖率”功能。
+
+## 快速安装
+
+1. 下载或克隆本仓库。
+2. 打开仓库里的 `plugins` 目录。
+3. 把 `plugins` 目录内的所有内容复制到 IDA 插件目录。
+
+复制后的结构应类似：
+
+```text
+<IDA 插件目录>/
+  lighthouse_plugin.py
+  lighthouse/
+    integration/
+    reader/
+    ui/
+    third_party/
+      dynamorio/
+```
+
+常见 IDA 插件目录：
+
+```text
+%APPDATA%\Hex-Rays\IDA Pro\plugins
+```
+
+也可以在 IDA Python Console 中查看准确路径：
+
+```python
+import idaapi, os
+print(os.path.join(idaapi.get_user_idadir(), "plugins"))
+```
+
+复制完成后重启 IDA。
+
+## 快速使用
+
+### 一键生成并加载覆盖率
+
+1. 用 IDA 打开目标 exe，并等待自动分析完成。
+2. 点击：
+
+```text
+File -> Load file -> 运行并加载覆盖率...
+```
+
+3. 如果程序需要命令行参数，在弹窗中输入；没有参数直接留空。
+   如果程序使用 `scanf` / `cin` / `fgets` 从标准输入读取内容，把输入写到“标准输入内容”框里。多个输入按读取顺序写多行。
+4. 插件会自动调用内置 DynamoRIO 运行目标程序。
+5. 程序退出后，插件会自动加载生成的 `drcov*.log`。
+6. 打开 `覆盖率总览` 后即可查看哪些函数、基本块、指令被执行过。
+
+生成的日志会保存在目标 exe 同目录：
+
+```text
+<目标 exe 所在目录>/lighthouse_drcov/<程序名_时间戳>/
+```
+
+如果目标路径中包含单引号、反引号等可能影响 DynamoRIO 参数解析的字符，插件会自动使用临时安全路径运行，结束后再把日志搬回上述目录。
+
+### 手动加载已有覆盖率
+
+```text
+File -> Load file -> 代码覆盖率文件...
+```
+
+### 批量加载覆盖率
+
+```text
+File -> Load file -> 批量代码覆盖率...
+```
+
+### 打开覆盖率总览
+
+```text
+View -> Open subviews -> 覆盖率总览
+```
+
+### 搜索和标签函数
+
+覆盖率总览保留原版底部 Shell 搜索方式：
+
+```text
+/函数名
+/地址片段
+/标签
+```
+
+也可以在覆盖率表格中按 `Ctrl+F` 弹出搜索框。搜索会匹配函数名、函数地址和标签。
+
+在覆盖率总览表格中右键函数，可以选择 `设置标签` / `清除标签`。多选函数后右键，可以批量设置或清除标签。标签会按当前数据库/root 文件名保存到目标程序或 IDB 所在目录下的 `lighthouse_tags/`，不同程序之间不会混在一起。
+
+## 本版主要改动
+
+- 适配 IDA 9.2+ / PySide6。
+- 修复 IDA 9.x 中 `idaapi` 拆分导致的兼容问题。
+- 插件菜单、按钮、提示、表格等主要功能已汉化。
+- 新增 `运行并加载覆盖率...` 菜单，一键运行 exe、生成 drcov log 并加载。
+- 新增覆盖率总览函数标签列，支持右键设置标签，并扩展 `/` 搜索和 `Ctrl+F` 搜索以匹配标签/地址。
+- 内置 DynamoRIO 精简运行时，包含 32 位和 64 位 `drrun.exe`。
+- 自动识别目标 exe 架构，优先选择 `bin32` 或 `bin64`，并在架构不匹配时自动回退。
+- 新增中文详细使用文档：[docs/IDA_9_2_PLUS_USAGE_CN.md](docs/IDA_9_2_PLUS_USAGE_CN.md)。
+
+## 注意事项
+
+- Lighthouse 显示的是代码覆盖率，主要回答“哪些函数/基本块/指令运行过”。
+- `覆盖率 %`、`命中块`、`命中指令` 不是函数调用次数。
+- 函数调用次数和调用顺序需要单独的 trace 功能，当前版本尚未实现。
+- 内置 DynamoRIO 是第三方运行时，保留在 `plugins/lighthouse/third_party/dynamorio/`，其中包含原始 `License.txt`、`README`、`ACKNOWLEDGEMENTS`。
 
 ## 1. 插件简介
 

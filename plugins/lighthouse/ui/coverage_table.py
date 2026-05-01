@@ -1,4 +1,6 @@
 import os
+import re
+import json
 import time
 import string
 import logging
@@ -69,6 +71,10 @@ class CoverageTableView(QtWidgets.QTableView):
         Overload QTableView key press events.
         """
 
+        if self._is_ctrl_f(event):
+            self._ui_prompt_search()
+            return
+
         # remap h/j/k/l to arrow keys (VIM bindings)
         if event.key() == QtCore.Qt.Key_J:
             event = remap_key_event(event, QtCore.Qt.Key_Down)
@@ -90,6 +96,30 @@ class CoverageTableView(QtWidgets.QTableView):
 
         self.repaint()
         flush_qt_events()
+
+    def _is_ctrl_f(self, event):
+        """
+        Return True if the event is Ctrl+F.
+        """
+        if event.key() != QtCore.Qt.Key_F:
+            return False
+
+        try:
+            return bool(event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier)
+        except AttributeError:
+            return bool(event.modifiers() & QtCore.Qt.ControlModifier)
+
+    def _ui_prompt_search(self):
+        """
+        Prompt for a search string and filter the table.
+        """
+        ok, search_string = prompt_string(
+            "输入函数名、地址或标签；留空清除搜索",
+            "搜索覆盖率函数",
+            self._model.search_string
+        )
+        if ok:
+            self._model.filter_string(search_string.strip())
 
     #--------------------------------------------------------------------------
     # Initialization - UI
@@ -204,10 +234,14 @@ class CoverageTableView(QtWidgets.QTableView):
 
         # function actions
         self._action_rename = QtWidgets.QAction("重命名", None)
+        self._action_set_tag = QtWidgets.QAction("设置标签", None)
+        self._action_clear_tag = QtWidgets.QAction("清除标签", None)
         self._action_copy_name = QtWidgets.QAction("复制名称", None)
         self._action_copy_address = QtWidgets.QAction("复制地址", None)
         self._action_copy_name_and_address = QtWidgets.QAction("复制名称和地址", None)
 
+        self._action_set_tags = QtWidgets.QAction("批量设置标签", None)
+        self._action_clear_tags = QtWidgets.QAction("批量清除标签", None)
         self._action_copy_names = QtWidgets.QAction("复制名称", None)
         self._action_copy_addresses = QtWidgets.QAction("复制地址", None)
         self._action_copy_names_and_addresses = QtWidgets.QAction("复制名称和地址", None)
@@ -339,6 +373,9 @@ class CoverageTableView(QtWidgets.QTableView):
             else:
                 ctx_menu.addAction(self._action_rename)
                 ctx_menu.addSeparator()
+                ctx_menu.addAction(self._action_set_tag)
+                ctx_menu.addAction(self._action_clear_tag)
+                ctx_menu.addSeparator()
                 ctx_menu.addAction(self._action_copy_name)
                 ctx_menu.addAction(self._action_copy_address)
                 ctx_menu.addAction(self._action_copy_name_and_address)
@@ -350,6 +387,9 @@ class CoverageTableView(QtWidgets.QTableView):
         #
 
         else:
+            ctx_menu.addAction(self._action_set_tags)
+            ctx_menu.addAction(self._action_clear_tags)
+            ctx_menu.addSeparator()
             ctx_menu.addAction(self._action_copy_names)
             ctx_menu.addAction(self._action_copy_addresses)
             ctx_menu.addAction(self._action_copy_names_and_addresses)
@@ -380,6 +420,13 @@ class CoverageTableView(QtWidgets.QTableView):
         # handle the 'Rename' action (only applies to a single function)
         if action == self._action_rename and len(rows) == 1:
             self._controller.rename_table_function(rows[0])
+
+        # handle the tag actions
+        elif action in [self._action_set_tag, self._action_set_tags]:
+            self._controller.set_table_function_tags(rows)
+
+        elif action in [self._action_clear_tag, self._action_clear_tags]:
+            self._controller.clear_table_function_tags(rows)
 
         # handle the 'Copy name' or 'Copy names' action
         elif action in [self._action_copy_name, self._action_copy_names]:
@@ -513,6 +560,41 @@ class CoverageTableController(object):
         """
         function_addresses = self._get_function_addresses(rows)
         disassembler[self.lctx].clear_prefixes(function_addresses)
+
+    #---------------------------------------------------------------------------
+    # Tags
+    #---------------------------------------------------------------------------
+
+    @mainthread
+    def set_table_function_tags(self, rows):
+        """
+        Set a user tag on the selected coverage table functions.
+        """
+        function_addresses = self._get_function_addresses(rows)
+        if not function_addresses:
+            return
+
+        default = ""
+        if len(function_addresses) == 1:
+            default = self._model.get_function_tag(function_addresses[0])
+
+        ok, tag = prompt_string(
+            "请输入标签（例如: 校验, 加密, 初始化）",
+            "设置函数标签",
+            default
+        )
+        if not ok:
+            return
+
+        self._model.set_function_tags(function_addresses, tag.strip())
+
+    @mainthread
+    def clear_table_function_tags(self, rows):
+        """
+        Clear user tags from the selected coverage table functions.
+        """
+        function_addresses = self._get_function_addresses(rows)
+        self._model.clear_function_tags(function_addresses)
 
     #---------------------------------------------------------------------------
     # Copy-to-Clipboard
@@ -718,10 +800,11 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
     COV_PERCENT  = 0
     FUNC_NAME    = 1
     FUNC_ADDR    = 2
-    BLOCKS_HIT   = 3
-    INST_HIT     = 4
-    FUNC_SIZE    = 5
-    COMPLEXITY   = 6
+    FUNC_TAG     = 3
+    BLOCKS_HIT   = 4
+    INST_HIT     = 5
+    FUNC_SIZE    = 6
+    COMPLEXITY   = 7
 
     METADATA_ATTRIBUTES = [FUNC_NAME, FUNC_ADDR, FUNC_SIZE, COMPLEXITY]
     COVERAGE_ATTRIBUTES = [COV_PERCENT, BLOCKS_HIT, INST_HIT]
@@ -732,6 +815,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         COV_PERCENT:  "instruction_percent",
         FUNC_NAME:    "name",
         FUNC_ADDR:    "address",
+        FUNC_TAG:     "tag",
         BLOCKS_HIT:   "nodes_executed",
         INST_HIT:     "instructions_executed",
         FUNC_SIZE:    "size",
@@ -744,6 +828,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         COV_PERCENT:  "覆盖率 %",
         FUNC_NAME:    "函数名",
         FUNC_ADDR:    "地址",
+        FUNC_TAG:     "标签",
         BLOCKS_HIT:   "命中块",
         INST_HIT:     "命中指令",
         FUNC_SIZE:    "函数大小",
@@ -756,6 +841,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         COV_PERCENT:  "覆盖率百分比",
         FUNC_NAME:    "函数名称",
         FUNC_ADDR:    "函数地址",
+        FUNC_TAG:     "用户标签，可用于搜索和筛选",
         BLOCKS_HIT:   "已执行的基本块数量",
         INST_HIT:     "已执行的指令数量",
         FUNC_SIZE:    "函数大小（字节）",
@@ -768,6 +854,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         " 100.00 ",
         " sub_140001B20 ",
         " 0x140001b20 ",
+        " 校验 ",
         " 100 / 100 ",
         " 1000 / 1000 ",
         " 100000 ",
@@ -830,6 +917,17 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         # OPTION: display functions matching search_string (substring)
         self._search_string = ""
 
+        # OPTION: display functions matching a specific user tag
+        self._tag_filter = ""
+
+        # OPTION: display functions matching numeric / state filters
+        self._filters = {}
+
+        # user tags, persisted per database/root binary
+        self._tags = {}
+        self._tags_path = self._get_tags_path()
+        self._load_tags()
+
         #----------------------------------------------------------------------
         # Signals
         #----------------------------------------------------------------------
@@ -847,6 +945,13 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         """
         self._blank_coverage.coverage_color = self.lctx.palette.table_coverage_none
         self._data_changed()
+
+    @property
+    def search_string(self):
+        """
+        Return the active search string.
+        """
+        return self._search_string
 
     #--------------------------------------------------------------------------
     # QAbstractTableModel Overloads
@@ -955,6 +1060,10 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         elif column == self.FUNC_ADDR:
             return "0x%X" % function_metadata.address
 
+        # User Tag
+        elif column == self.FUNC_TAG:
+            return self.get_function_tag(function_address)
+
         # Basic Blocks
         elif column == self.BLOCKS_HIT:
             return "%3u / %-3u" % (function_coverage.nodes_executed,
@@ -982,6 +1091,8 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         """
         if column == self.FUNC_NAME:
             return "孤立覆盖率"
+        elif column == self.FUNC_TAG:
+            return ""
         elif column == self.INST_HIT:
             return "%u" % len(self._director.coverage.orphan_addresses)
         return "不适用"
@@ -1067,8 +1178,16 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         #   accessing the member on the member, hence the strange paradigm
         #
 
+        # sort the table entries by user tag
+        if column == self.FUNC_TAG:
+            sorted_functions = sorted(
+                itervalues(self._visible_metadata),
+                key=lambda x: self.get_function_tag(x.address).lower(),
+                reverse=direction
+            )
+
         # sort the table entries by a function metadata attribute
-        if column in self.METADATA_ATTRIBUTES:
+        elif column in self.METADATA_ATTRIBUTES:
             sorted_functions = sorted(
                 itervalues(self._visible_metadata),
                 key=attrgetter(sort_field),
@@ -1152,6 +1271,47 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
 
         # compute coverage percentage of the visible functions
         return (float(instructions_executed) / (instruction_count or 1))*100
+
+    def get_function_tag(self, function_address):
+        """
+        Return the user tag for a function.
+        """
+        return self._tags.get(self._tag_key(function_address), "")
+
+    def get_all_tags(self):
+        """
+        Return all user tags currently known to the model.
+        """
+        return sorted(set(tag for tag in itervalues(self._tags) if tag))
+
+    def set_function_tags(self, function_addresses, tag):
+        """
+        Set a user tag on a group of functions.
+        """
+        for function_address in function_addresses:
+            key = self._tag_key(function_address)
+            if tag:
+                self._tags[key] = tag
+            elif key in self._tags:
+                del self._tags[key]
+
+        self._save_tags()
+        self._internal_refresh()
+
+    def clear_function_tags(self, function_addresses):
+        """
+        Clear user tags from a group of functions.
+        """
+        changed = False
+        for function_address in function_addresses:
+            key = self._tag_key(function_address)
+            if key in self._tags:
+                del self._tags[key]
+                changed = True
+
+        if changed:
+            self._save_tags()
+            self._internal_refresh()
 
     #--------------------------------------------------------------------------
     # HTML Export
@@ -1338,6 +1498,82 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         self._search_string = search_string
         self._internal_refresh()
 
+    def filter_tag(self, tag):
+        """
+        Filter out functions that do not have the requested tag.
+        """
+        if tag == self._tag_filter:
+            return
+
+        self._tag_filter = tag
+        self._internal_refresh()
+
+    def filter_advanced(self, filters):
+        """
+        Apply advanced numeric / state filters.
+        """
+        filters = filters or {}
+        if filters == self._filters:
+            return
+
+        self._filters = filters
+        self._internal_refresh()
+
+    def parse_filter_expression(self, text):
+        """
+        Parse a compact filter expression from the overview toolbar.
+        """
+        filters = {}
+        text = (text or "").strip()
+        if not text:
+            return filters
+
+        aliases = {
+            "cov": "cov", "coverage": "cov", "覆盖率": "cov",
+            "block": "blocks", "blocks": "blocks", "bb": "blocks", "命中块": "blocks",
+            "inst": "inst", "ins": "inst", "指令": "inst", "命中指令": "inst",
+            "size": "size", "函数大小": "size",
+            "cc": "cc", "复杂度": "cc",
+            "tag": "tag", "标签": "tag",
+            "hit": "hit", "命中": "hit",
+        }
+
+        for token in re.split(r"[\s,;]+", text):
+            if not token:
+                continue
+            if token in ("hit", "命中", "covered", "已命中"):
+                filters["hit"] = True
+                continue
+            if token in ("unhit", "未命中", "zero"):
+                filters["hit"] = False
+                continue
+
+            match = re.match(r"^([^<>=!]+)(>=|<=|==|!=|=|>|<)(.+)$", token)
+            if not match:
+                raise ValueError("无法识别筛选条件: %s" % token)
+
+            key, op, value = match.groups()
+            key = aliases.get(key.strip().lower(), key.strip().lower())
+            value = value.strip()
+
+            if key == "tag":
+                filters["tag"] = (op, value)
+                continue
+            if key == "hit":
+                filters["hit"] = value.lower() not in ("0", "false", "no", "否", "未命中")
+                continue
+            if key not in ("cov", "blocks", "inst", "size", "cc"):
+                raise ValueError("未知筛选字段: %s" % key)
+
+            try:
+                number = float(value)
+            except ValueError:
+                raise ValueError("筛选数值无效: %s" % token)
+
+            filters.setdefault("numeric", []).append((key, op, number))
+
+        return filters
+
     #--------------------------------------------------------------------------
     # Refresh
     #--------------------------------------------------------------------------
@@ -1385,6 +1621,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
         normalize = lambda x: x
         if not (set(self._search_string) & set(string.ascii_uppercase)):
             normalize = lambda x: x.lower()
+        search_string = normalize(self._search_string)
 
         #
         # it's time to rebuild the list of coverage items to make visible in
@@ -1403,8 +1640,25 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
             if self._hide_zero and not function_address in coverage.functions:
                 continue
 
+            function_metadata = metadata.functions[function_address]
+            function_coverage = coverage.functions.get(function_address, self._blank_coverage)
+            function_tag = self.get_function_tag(function_address)
+
             # OPTIONS: ignore items that do not match the search string
-            if not self._search_string in normalize(metadata.functions[function_address].name):
+            searchable = " ".join([
+                function_metadata.name,
+                "0x%X" % function_metadata.address,
+                function_tag,
+            ])
+            if search_string and search_string not in normalize(searchable):
+                continue
+
+            # OPTION: ignore items that do not match the selected tag
+            if self._tag_filter and function_tag != self._tag_filter:
+                continue
+
+            # OPTION: ignore items that do not match advanced filters
+            if not self._passes_advanced_filters(function_metadata, function_coverage, function_tag):
                 continue
 
             #------------------------------------------------------------------
@@ -1412,7 +1666,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
             #------------------------------------------------------------------
 
             # store a reference to the listed function's metadata
-            self._visible_metadata[function_address] = metadata.functions[function_address]
+            self._visible_metadata[function_address] = function_metadata
 
             # store a reference to the listed function's coverage
             if function_address in coverage.functions:
@@ -1420,7 +1674,7 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
 
             # reminder: coverage is *not* guaranteed :-)
             else:
-                self._no_coverage.append(metadata.functions[function_address])
+                self._no_coverage.append(function_metadata)
 
             # map the function address to a visible row # for easy lookup
             self.row2func[row] = function_address
@@ -1434,6 +1688,110 @@ class CoverageTableModel(QtCore.QAbstractTableModel):
 
         # bake the final number of rows into the model
         self._row_count = len(self.row2func)
+
+    def _passes_advanced_filters(self, metadata, coverage, tag):
+        """
+        Return True if a function matches the advanced filter expression.
+        """
+        if not self._filters:
+            return True
+
+        if "hit" in self._filters:
+            hit = coverage.instructions_executed > 0
+            if hit != self._filters["hit"]:
+                return False
+
+        if "tag" in self._filters:
+            op, expected = self._filters["tag"]
+            if op in ("=", "==") and tag != expected:
+                return False
+            if op == "!=" and tag == expected:
+                return False
+
+        values = {
+            "cov": coverage.instruction_percent * 100.0,
+            "blocks": coverage.nodes_executed,
+            "inst": coverage.instructions_executed,
+            "size": metadata.size,
+            "cc": metadata.cyclomatic_complexity,
+        }
+
+        for key, op, expected in self._filters.get("numeric", []):
+            actual = values[key]
+            if op == ">" and not actual > expected:
+                return False
+            if op == ">=" and not actual >= expected:
+                return False
+            if op == "<" and not actual < expected:
+                return False
+            if op == "<=" and not actual <= expected:
+                return False
+            if op in ("=", "==") and not actual == expected:
+                return False
+            if op == "!=" and not actual != expected:
+                return False
+
+        return True
+
+    def _tag_key(self, function_address):
+        """
+        Generate a stable string key for a tagged function address.
+        """
+        return "0x%X" % function_address
+
+    def _get_tags_path(self):
+        """
+        Return the per-database tag store path.
+        """
+        try:
+            root_name = disassembler[self.lctx].get_root_filename()
+        except Exception:
+            root_name = "database"
+
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", root_name or "database")
+        try:
+            database_dir = disassembler[self.lctx].get_database_directory()
+        except Exception:
+            database_dir = disassembler.get_disassembler_user_directory()
+
+        tag_dir = os.path.join(database_dir, "lighthouse_tags")
+        try:
+            os.makedirs(tag_dir)
+        except OSError:
+            pass
+        return os.path.join(tag_dir, "%s.tags.json" % safe_name)
+
+    def _load_tags(self):
+        """
+        Load user tags from disk.
+        """
+        try:
+            with open(self._tags_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except TypeError:
+            try:
+                with open(self._tags_path, "r") as f:
+                    data = json.load(f)
+            except Exception:
+                return
+        except Exception:
+            return
+
+        if isinstance(data, dict):
+            self._tags = dict((str(k), str(v)) for k, v in iteritems(data) if v)
+
+    def _save_tags(self):
+        """
+        Save user tags to disk.
+        """
+        try:
+            with open(self._tags_path, "w", encoding="utf-8") as f:
+                json.dump(self._tags, f, ensure_ascii=False, indent=2, sort_keys=True)
+        except TypeError:
+            with open(self._tags_path, "w") as f:
+                json.dump(self._tags, f, indent=2, sort_keys=True)
+        except Exception as e:
+            lmsg("保存函数标签失败: %s" % e)
 
     #--------------------------------------------------------------------------
     # Qt Notifications

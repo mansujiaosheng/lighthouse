@@ -87,3 +87,8 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Bundled DynamoRIO runtime used by Lighthouse's one-click drcov integration.
+!plugins/lighthouse/third_party/
+!plugins/lighthouse/third_party/dynamorio/
+!plugins/lighthouse/third_party/dynamorio/**

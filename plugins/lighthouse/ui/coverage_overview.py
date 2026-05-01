@@ -64,6 +64,25 @@ class CoverageOverview(object):
         """
         The CoverageOverview is being hidden / deleted.
         """
+        try:
+            self._settings_button.clicked.disconnect(self._ui_show_settings)
+        except Exception:
+            pass
+        try:
+            self._help_button.setMenu(None)
+        except Exception:
+            pass
+        try:
+            self._help_menu.clear()
+        except Exception:
+            pass
+
+        self._help_menu = None
+        self._help_button = None
+        self._settings_menu = None
+        self._settings_button = None
+        self._toolbar = None
+        self._shell_elements = None
         self._combobox = None
         self._shell = None
         self._table_view = None
@@ -103,6 +122,7 @@ class CoverageOverview(object):
 
         # initialize child elements to go on the toolbar
         self._ui_init_toolbar_elements()
+        self._ui_init_help()
         self._ui_init_settings()
 
         #
@@ -116,6 +136,7 @@ class CoverageOverview(object):
 
         # populate the toolbar with all our subordinates
         self._toolbar.addWidget(self._shell_elements)
+        self._toolbar.addWidget(self._help_button)
         self._toolbar.addWidget(self._settings_button)
 
     def _ui_init_toolbar_elements(self):
@@ -179,6 +200,29 @@ class CoverageOverview(object):
 
         # settings menu
         self._settings_menu = TableSettingsMenu(self.widget)
+
+    def _ui_init_help(self):
+        """
+        Initialize the usage help button.
+        """
+        self._help_button = QtWidgets.QToolButton(self.widget)
+        self._help_button.setText("使用")
+        self._help_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        self._help_button.setStyleSheet("QToolButton::menu-indicator{image: none;}")
+
+        self._help_menu = QtWidgets.QMenu(self._help_button)
+        self._help_menu.addAction("搜索函数: 在底部输入 /函数名")
+        self._help_menu.addAction("搜索地址: 在底部输入 /401000 或 /140001000")
+        self._help_menu.addAction("搜索标签: 在底部输入 /校验 或 /加密")
+        self._help_menu.addSeparator()
+        self._help_menu.addAction("快捷搜索: 点击表格后按 Ctrl+F")
+        self._help_menu.addAction("设置标签: 右键函数 -> 设置标签")
+        self._help_menu.addAction("批量标签: 多选函数 -> 右键 -> 批量设置标签")
+        self._help_menu.addSeparator()
+        self._help_menu.addAction("清除搜索: 清空底部输入框，或 Ctrl+F 搜索时留空")
+        self._help_menu.addAction("组合覆盖率: 仍可在底部输入 A|B、A&B、A-B 等表达式")
+
+        self._help_button.setMenu(self._help_menu)
 
     def _ui_init_signals(self):
         """

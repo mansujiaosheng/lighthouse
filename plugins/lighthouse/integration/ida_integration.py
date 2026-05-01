@@ -8,10 +8,10 @@ import idaapi
 from lighthouse.util.disassembler.ida_compat import patch_idaapi
 
 from lighthouse.context import LighthouseContext
-from lighthouse.integration.drcov_runner import run_drcov_async
+from lighthouse.integration.drcov_runner import is_64bit_pe, run_drcov_async
 from lighthouse.util import lmsg
 from lighthouse.util.misc import plugin_resource
-from lighthouse.util.qt import QtWidgets, await_future, prompt_string
+from lighthouse.util.qt import QtWidgets, QtCore, await_future, qt_exec, prompt_string
 from lighthouse.util.disassembler import disassembler
 from lighthouse.integration.core import LighthouseCore
 
@@ -408,15 +408,11 @@ class LighthouseIDA(LighthouseCore):
         if not target_path:
             return
 
-        drrun_path = self._find_or_select_drrun_path()
-        if not drrun_path:
+        drrun_paths = self._find_or_select_drrun_paths(target_path)
+        if not drrun_paths:
             return
 
-        ok, target_args = prompt_string(
-            "请输入程序运行参数（可留空）:",
-            "运行参数",
-            ""
-        )
+        ok, target_args, stdin_data = self._prompt_run_inputs()
         if not ok:
             return
 
@@ -425,11 +421,12 @@ class LighthouseIDA(LighthouseCore):
 
         disassembler.show_wait_box("正在运行目标程序并生成覆盖率...")
         run_future = run_drcov_async(
-            drrun_path,
+            drrun_paths,
             target_path,
             target_args,
             output_dir,
-            os.path.dirname(target_path)
+            os.path.dirname(target_path),
+            stdin_data
         )
         result = await_future(run_future)
         disassembler.hide_wait_box()
@@ -440,6 +437,7 @@ class LighthouseIDA(LighthouseCore):
             return
 
         logs = result["logs"]
+        lmsg("使用 DynamoRIO: %s" % result["drrun_path"])
         if result["returncode"]:
             lmsg("目标程序返回码: %d" % result["returncode"])
 
@@ -448,6 +446,81 @@ class LighthouseIDA(LighthouseCore):
             lmsg(" - %s" % log_path)
 
         self._load_coverage_filepaths(lctx, logs, future)
+
+    def _prompt_run_inputs(self):
+        """
+        Prompt the user for target process arguments and stdin.
+        """
+        dialog = QtWidgets.QDialog(None)
+        dialog.setWindowTitle("运行输入")
+        dialog.setModal(True)
+
+        args_label = QtWidgets.QLabel("命令行参数（argv，可留空，不要填写 exe 路径）:")
+        args_edit = QtWidgets.QLineEdit()
+        args_edit.setPlaceholderText('例如: 123 或 --mode test "hello world"')
+
+        stdin_label = QtWidgets.QLabel("标准输入内容（stdin/scanf，可留空；多个 scanf 可写多行）:")
+        stdin_edit = QtWidgets.QPlainTextEdit()
+        stdin_edit.setPlaceholderText("例如:\nflag123\n42\nhello")
+        stdin_edit.setMinimumHeight(110)
+
+        help_button = QtWidgets.QPushButton("帮助")
+        ok_button = QtWidgets.QPushButton("确定")
+        cancel_button = QtWidgets.QPushButton("取消")
+
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(help_button)
+        button_layout.addStretch(1)
+        button_layout.addWidget(ok_button)
+        button_layout.addWidget(cancel_button)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(args_label)
+        layout.addWidget(args_edit)
+        layout.addWidget(stdin_label)
+        layout.addWidget(stdin_edit)
+        layout.addLayout(button_layout)
+        dialog.setLayout(layout)
+        dialog.resize(560, 260)
+
+        def show_help():
+            QtWidgets.QMessageBox.information(
+                dialog,
+                "运行参数帮助",
+                "这里填写的是目标 exe 的命令行参数，不包含 exe 路径本身。\n\n"
+                "如果程序这样运行:\n"
+                "  test.exe 123\n"
+                "命令行参数填:\n"
+                "  123\n\n"
+                "如果程序这样运行:\n"
+                "  test.exe --mode check \"hello world\"\n"
+                "命令行参数填:\n"
+                "  --mode check \"hello world\"\n\n"
+                "如果程序使用 scanf / gets / fgets / cin 从标准输入读取:\n"
+                "  scanf(\"%s\", buf);\n"
+                "标准输入内容填:\n"
+                "  flag123\n\n"
+                "如果有多个 scanf，按读取顺序写多行，例如:\n"
+                "  admin\n"
+                "  123456\n"
+                "  7\n\n"
+                "插件会自动在标准输入末尾补一个换行，避免 scanf 等待输入。\n\n"
+                "想生成不同输入的覆盖率，就多次执行“运行并加载覆盖率...”，"
+                "每次填写不同参数。加载后覆盖率总览会把它们分配为 A、B、C，"
+                "可以用 A-B、A&B、A|B 对比路径。"
+            )
+
+        help_button.clicked.connect(show_help)
+        ok_button.clicked.connect(dialog.accept)
+        cancel_button.clicked.connect(dialog.reject)
+        args_edit.returnPressed.connect(dialog.accept)
+
+        ok = qt_exec(dialog) == QtWidgets.QDialog.Accepted
+        target_args = str(args_edit.text())
+        stdin_data = str(stdin_edit.toPlainText())
+        if stdin_data and not stdin_data.endswith("\n"):
+            stdin_data += "\n"
+        return ok, target_args, stdin_data
 
     def _config_path(self):
         """
@@ -488,19 +561,63 @@ class LighthouseIDA(LighthouseCore):
         except Exception:
             return True
 
-    def _candidate_drrun_paths(self):
+    def _target_is_64bit(self, target_path):
+        """
+        Return True if the target executable is 64bit.
+        """
+        return is_64bit_pe(target_path, self._is_64bit_database())
+
+    def _expand_drrun_path(self, path, preferred_bins):
+        """
+        Expand one drrun path into architecture-preferred sibling paths.
+        """
+        if not path:
+            return []
+
+        path = os.path.abspath(path)
+        parent = os.path.basename(os.path.dirname(path)).lower()
+        root = os.path.dirname(os.path.dirname(path))
+
+        if parent in ("bin32", "bin64"):
+            return [
+                os.path.join(root, bin_name, "drrun.exe")
+                for bin_name in preferred_bins
+            ]
+
+        return [path]
+
+    def _candidate_drrun_paths(self, target_path):
         """
         Yield plausible DynamoRIO drrun paths for this machine.
         """
+        target_is_64bit = self._target_is_64bit(target_path)
+        preferred_bins = ["bin64", "bin32"] if target_is_64bit else ["bin32", "bin64"]
+
+        seen = set()
+
+        def emit(path):
+            path = os.path.abspath(path)
+            key = os.path.normcase(path)
+            if key in seen:
+                return None
+            seen.add(key)
+            return path
+
         config = self._load_config()
         configured = config.get("drrun_path")
         if configured:
-            yield configured
+            for path in self._expand_drrun_path(configured, preferred_bins):
+                path = emit(path)
+                if path:
+                    yield path
 
         for env_name in ("LIGHTHOUSE_DRRUN", "DYNAMORIO_DRRUN"):
             env_path = os.environ.get(env_name)
             if env_path:
-                yield env_path
+                for path in self._expand_drrun_path(env_path, preferred_bins):
+                    path = emit(path)
+                    if path:
+                        yield path
 
         roots = []
         for env_name in ("DYNAMORIO_HOME", "DYNAMORIO_ROOT"):
@@ -512,11 +629,14 @@ class LighthouseIDA(LighthouseCore):
         roots.append(os.path.join(plugin_dir, "third_party", "dynamorio"))
         roots.append(os.path.join(plugin_dir, "tools", "dynamorio"))
 
-        preferred_bins = ["bin64", "bin32"] if self._is_64bit_database() else ["bin32", "bin64"]
         for root in roots:
-            yield os.path.join(root, "drrun.exe")
+            path = emit(os.path.join(root, "drrun.exe"))
+            if path:
+                yield path
             for bin_name in preferred_bins:
-                yield os.path.join(root, bin_name, "drrun.exe")
+                path = emit(os.path.join(root, bin_name, "drrun.exe"))
+                if path:
+                    yield path
             try:
                 children = os.listdir(root)
             except OSError:
@@ -525,26 +645,36 @@ class LighthouseIDA(LighthouseCore):
                 child_root = os.path.join(root, child)
                 if not os.path.isdir(child_root):
                     continue
-                yield os.path.join(child_root, "drrun.exe")
+                path = emit(os.path.join(child_root, "drrun.exe"))
+                if path:
+                    yield path
                 for bin_name in preferred_bins:
-                    yield os.path.join(child_root, bin_name, "drrun.exe")
+                    path = emit(os.path.join(child_root, bin_name, "drrun.exe"))
+                    if path:
+                        yield path
 
         which = shutil.which("drrun.exe") or shutil.which("drrun")
         if which:
-            yield which
+            for path in self._expand_drrun_path(which, preferred_bins):
+                path = emit(path)
+                if path:
+                    yield path
 
-    def _find_or_select_drrun_path(self):
+    def _find_or_select_drrun_paths(self, target_path):
         """
         Locate DynamoRIO's drrun.exe, prompting the user if needed.
         """
-        for path in self._candidate_drrun_paths():
+        candidates = []
+        for path in self._candidate_drrun_paths(target_path):
             if path and os.path.isfile(path):
-                path = os.path.abspath(path)
-                config = self._load_config()
-                if config.get("drrun_path") != path:
-                    config["drrun_path"] = path
-                    self._save_config(config)
-                return path
+                candidates.append(os.path.abspath(path))
+
+        if candidates:
+            config = self._load_config()
+            if config.get("drrun_path") != candidates[0]:
+                config["drrun_path"] = candidates[0]
+                self._save_config(config)
+            return candidates
 
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             None,
@@ -567,7 +697,12 @@ class LighthouseIDA(LighthouseCore):
         config = self._load_config()
         config["drrun_path"] = path
         self._save_config(config)
-        return path
+        preferred_bins = ["bin64", "bin32"] if self._target_is_64bit(target_path) else ["bin32", "bin64"]
+        return [
+            candidate for candidate in
+            self._expand_drrun_path(path, preferred_bins)
+            if os.path.isfile(candidate)
+        ] or [path]
 
     def _select_target_executable(self):
         """
@@ -594,9 +729,8 @@ class LighthouseIDA(LighthouseCore):
         target_name = os.path.splitext(os.path.basename(target_path))[0]
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         return os.path.join(
-            disassembler.get_disassembler_user_directory(),
-            "lighthouse",
-            "drcov",
+            os.path.dirname(target_path),
+            "lighthouse_drcov",
             "%s_%s" % (target_name, timestamp)
         )
 
