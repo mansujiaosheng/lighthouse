@@ -6,7 +6,7 @@ import logging
 
 import idaapi
 from lighthouse.util.disassembler.ida_compat import patch_idaapi
-
+from lighthouse.integration.ida_live_coverage import LiveCoverageManager
 from lighthouse.context import LighthouseContext
 from lighthouse.integration.drcov_runner import is_64bit_pe, run_drcov_async
 from lighthouse.util import lmsg
@@ -38,10 +38,25 @@ class LighthouseIDA(LighthouseCore):
 
         # IDA ui hooks
         self._ui_hooks = UIHooks(self)
+        self._live_coverage = LiveCoverageManager(self)
 
         # run initialization
         super(LighthouseIDA, self).__init__()
+    def _install_ui(self):
+        """
+        Install Lighthouse UI plus IDA live coverage actions.
+        """
+        LighthouseCore._install_ui(self)
+        self._live_coverage.install()
 
+    def _uninstall_ui(self):
+        """
+        Uninstall IDA live coverage actions before normal Lighthouse UI.
+        """
+        try:
+            self._live_coverage.uninstall()
+        finally:
+            LighthouseCore._uninstall_ui(self)
     def get_context(self, dctx=None, startup=True):
         """
         Get the LighthouseContext object for a given database context.

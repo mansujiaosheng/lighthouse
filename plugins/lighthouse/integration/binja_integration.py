@@ -3,7 +3,7 @@ import logging
 
 from binaryninja import PluginCommand
 from binaryninjaui import UIAction, UIActionHandler, Menu
-
+from lighthouse.integration.ida_live_coverage import LiveCoverageManager
 from lighthouse.context import LighthouseContext
 from lighthouse.integration.core import LighthouseCore
 from lighthouse.util.disassembler import disassembler
